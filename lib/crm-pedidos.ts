@@ -1,32 +1,22 @@
-// Tipos del pedido y su doble autorizacion.
+// Tipos del pedido y su doble aprobacion.
 //
-// SIN "use server": las funciones viven en crm-pedidos-actions.ts.
+// SIN "use server": las funciones viven en crm-pedidos-actions.ts. Las reglas
+// del ciclo de vida estan en crm-pedidos-estado.ts (fase 2 del requerimiento
+// INDUPAN); aqui se reexportan con los nombres que ya usaba la interfaz.
 
-export type EstadoPedido =
-  | "borrador"
-  | "pendiente_autorizacion"
-  | "autorizado_parcial"
-  | "autorizado"
-  | "rechazado"
-  | "enviado_lipgo"
-  | "anulado"
+import {
+  ESTADO_LABEL, ROL_ETIQUETA, puedeFirmar as puedeFirmarV2,
+  type EstadoPedidoV2, type EstadoSap, type ModoAprobacion, type Rol,
+} from "@/lib/crm-pedidos-estado"
 
-export type RolAutorizacion = "contabilidad" | "gerencia"
+export type EstadoPedido = EstadoPedidoV2
+export type RolAutorizacion = Rol
 
-export const ESTADO_PEDIDO_LABEL: Record<EstadoPedido, string> = {
-  borrador: "Borrador",
-  pendiente_autorizacion: "Pendiente de autorización",
-  autorizado_parcial: "Falta una firma",
-  autorizado: "Autorizado",
-  rechazado: "Rechazado",
-  enviado_lipgo: "Enviado a operación",
-  anulado: "Anulado",
-}
+export const ESTADO_PEDIDO_LABEL: Record<EstadoPedido, string> = ESTADO_LABEL
 
-export const ROL_LABEL: Record<RolAutorizacion, string> = {
-  contabilidad: "Contabilidad",
-  gerencia: "Gerencia",
-}
+/** La primera firma se muestra como "Cartera"; internamente sigue siendo
+ *  "contabilidad", que es como se llaman sus columnas en la tabla compartida. */
+export const ROL_LABEL: Record<RolAutorizacion, string> = ROL_ETIQUETA
 
 /** Permiso que habilita cada firma. */
 export const PERMISO_POR_ROL: Record<RolAutorizacion, "crm_autorizar_contabilidad" | "crm_autorizar_gerencia"> = {
@@ -93,6 +83,24 @@ export interface Pedido {
   creado_por: string | null
   creado_en: string
   actualizado_en: string
+
+  // Fase 2 (scripts 193 y 199)
+  owner_id?: number | null
+  idempresa_despacho?: number | null
+  requiere_sobrecupo?: boolean
+  sobrecupo_valor?: number
+  cupo_snapshot?: number | null
+  saldo_snapshot?: number | null
+  vencido_snapshot?: number | null
+  dias_mora_snapshot?: number | null
+  solicitado_por?: string | null
+  solicitado_nombre?: string | null
+  solicitado_en?: string | null
+  version?: number
+  motivo_rechazo_id?: number | null
+  sap_estado?: EstadoSap
+  sap_referencia?: string | null
+  sap_error?: string | null
 }
 
 export interface LineaPedido {
@@ -111,12 +119,18 @@ export interface LineaPedido {
   subtotal: number
   total_linea: number
   peso: number
+  impuesto_id?: number | null
+  impuesto_pct?: number | null
+  base_impuesto?: number | null
+  impuesto_valor?: number | null
 }
 
 export interface PedidoConDetalle extends Pedido {
   cliente_nombre?: string | null
   vendedor_nombre?: string | null
   cotizacion_numero?: string | null
+  sucursal_nombre?: string | null
+  owner_nombre?: string | null
   lineas?: LineaPedido[]
 }
 
@@ -141,38 +155,18 @@ export function firmasPendientes(p: Pedido): RolAutorizacion[] {
 }
 
 /**
- * Si un usuario puede dar una firma concreta.
- *
- * SEPARACION DE FUNCIONES: quien ya firmó como contabilidad no puede firmar
- * como gerencia, y quien creó el pedido no puede autorizarlo. Sin esto, "dos
- * autorizaciones" son dos clics de la misma mano y el control no existe.
+ * Si un usuario puede dar una firma. Envoltorio de la version con modo de
+ * aprobacion (crm-pedidos-estado.ts), con la forma de respuesta de antes.
  */
 export function puedeFirmar(
   p: Pedido,
   rol: RolAutorizacion,
   usuarioId: string,
   usuarioNombre: string,
+  modo: ModoAprobacion = "secuencial",
 ): { puede: boolean; motivo?: string } {
-  if (p.estado === "rechazado") return { puede: false, motivo: "El pedido está rechazado" }
-  if (p.estado === "anulado") return { puede: false, motivo: "El pedido está anulado" }
-  if (p.idpedido_lipgo) return { puede: false, motivo: "El pedido ya viajó a operación" }
-
-  const yaFirmada = rol === "contabilidad" ? p.auth_contabilidad_en : p.auth_gerencia_en
-  if (yaFirmada) return { puede: false, motivo: `${ROL_LABEL[rol]} ya autorizó este pedido` }
-
-  const otra = rol === "contabilidad" ? p.auth_gerencia_por : p.auth_contabilidad_por
-  if (otra && otra === usuarioId) {
-    return {
-      puede: false,
-      motivo: "Ya diste la otra firma. Las dos autorizaciones deben ser de personas distintas.",
-    }
-  }
-
-  if (p.creado_por && p.creado_por === usuarioNombre) {
-    return { puede: false, motivo: "No puedes autorizar un pedido que tú mismo creaste" }
-  }
-
-  return { puede: true }
+  const r = puedeFirmarV2(p, rol, usuarioId, usuarioNombre, modo)
+  return r.ok ? { puede: true } : { puede: false, motivo: r.motivo }
 }
 
 export const money = (n: number) =>

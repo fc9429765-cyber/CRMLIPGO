@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
-  Loader2, Search, Users, Wallet, Tag, ShieldAlert, MapPin, Pencil, Phone, Mail,
+  Loader2, Search, Users, Wallet, Tag, ShieldAlert, MapPin, Pencil, Phone, Mail, ListChecks,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { getClientesCrm, getClienteCrm, actualizarDatosComercialesCliente } from "@/lib/crm-catalogos-actions"
@@ -33,6 +33,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { MarcoTabla, FilaCargando, FilaVacia } from "@/components/crm/ui/modulo"
+import { Cuenta360Dialog } from "@/components/crm/clientes/cuenta-360-dialog"
+import { CatalogoClienteDialog } from "@/components/crm/clientes/catalogo-cliente-dialog"
 
 const SIN_LISTA = "__ninguna__"
 const SIN_VENDEDOR = "__ninguno__"
@@ -47,6 +49,10 @@ export function ClientesPanel() {
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState("")
   const [editando, setEditando] = useState<ClienteCrm | null>(null)
+  // Consultas del cliente que no editan su ficha: la cuenta (cartera) y el
+  // catálogo de productos que se le pueden vender.
+  const [cuenta, setCuenta] = useState<ClienteCrm | null>(null)
+  const [catalogo, setCatalogo] = useState<ClienteCrm | null>(null)
 
   const cargar = async () => {
     const [cRes, lRes, vRes] = await Promise.all([
@@ -143,7 +149,7 @@ export function ClientesPanel() {
                 <TableHead className="text-xs font-semibold">Contacto</TableHead>
                 <TableHead className="text-xs font-semibold">Lista</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Cupo</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
 
@@ -210,9 +216,29 @@ export function ClientesPanel() {
                   </TableCell>
 
                   <TableCell className="text-xs">
-                    <Button variant="ghost" size="icon" onClick={() => abrirEdicion(c)} aria-label="Editar">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => setCuenta(c)}
+                        aria-label="Cuenta 360" title="Cuenta 360"
+                      >
+                        <Wallet className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => setCatalogo(c)}
+                        aria-label="Catálogo" title="Catálogo"
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => abrirEdicion(c)}
+                        aria-label="Editar" title="Editar"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
                 ))
@@ -239,6 +265,25 @@ export function ClientesPanel() {
             setEditando(null)
             cargar()
           }}
+        />
+      )}
+
+      {cuenta && (
+        <Cuenta360Dialog
+          clienteId={cuenta.id}
+          empresaId={empresaId}
+          abierto
+          onCerrar={() => setCuenta(null)}
+        />
+      )}
+
+      {catalogo && (
+        <CatalogoClienteDialog
+          clienteId={catalogo.id}
+          clienteNombre={catalogo.nombre}
+          empresaId={empresaId}
+          abierto
+          onCerrar={() => setCatalogo(null)}
         />
       )}
     </div>

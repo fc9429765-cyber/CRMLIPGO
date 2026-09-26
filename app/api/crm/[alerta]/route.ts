@@ -17,6 +17,8 @@ import { getSupabaseAdminAsSystem } from "@/lib/supabase-admin"
 import { leerParamNumber } from "@/lib/crm-parametros-server"
 import { PARAM } from "@/lib/crm-parametros"
 import { hoyISO, sumarDias } from "@/lib/crm-fechas"
+import { leerParam } from "@/lib/crm-parametros-server"
+import { puedeFirmar, rolesQueFaltan, type ModoAprobacion } from "@/lib/crm-pedidos-estado"
 
 export const dynamic = "force-dynamic"
 
@@ -134,29 +136,59 @@ const DOMINIOS: Record<string, { permisos: string[]; generar: Generador }> = {
     },
   },
 
-  // Pedidos que esperan la firma que este usuario puede dar.
+  // Pedidos que esperan la aprobacion que este usuario puede dar. Respeta el
+  // orden: en modo secuencial, a Gerencia no le suena lo que Cartera no ha
+  // aprobado todavia.
   autorizaciones: {
     permisos: ["crm_autorizar_contabilidad", "crm_autorizar_gerencia"],
     generar: async (ctx, empresaId) => {
       const sb = await getSupabaseAdminAsSystem()
-      const cartera = tienePermiso(ctx, "crm_autorizar_contabilidad")
-      const gerencia = tienePermiso(ctx, "crm_autorizar_gerencia")
+      const modo: ModoAprobacion = (await leerParam(PARAM.PEDIDO_APROBACION_MODO, empresaId)) === "paralelo" ? "paralelo" : "secuencial"
+      const roles = (["contabilidad", "gerencia"] as const).filter((r) =>
+        tienePermiso(ctx, r === "contabilidad" ? "crm_autorizar_contabilidad" : "crm_autorizar_gerencia"),
+      )
       const { data } = await sb
         .from("crm_pedidos")
-        .select("id, numero, total, auth_contabilidad_en, auth_gerencia_en, creado_por")
+        .select("id, numero, total, estado, requiere_sobrecupo, sobrecupo_valor, creado_por, solicitado_por, idpedido_lipgo, auth_contabilidad_en, auth_contabilidad_por, auth_gerencia_en, auth_gerencia_por")
         .eq("idempresa", empresaId)
-        .in("estado", ["pendiente_autorizacion", "autorizado_parcial", "pendiente_cartera", "pendiente_gerencia"])
-        .order("creado_en")
-        .limit(50)
+        .in("estado", ["pendiente_cartera", "pendiente_gerencia"])
+        .order("solicitado_en")
+        .limit(100)
       return (data ?? [])
-        .filter((p) => p.creado_por !== ctx.nombre)
-        .filter((p) => (cartera && !p.auth_contabilidad_en) || (gerencia && !p.auth_gerencia_en))
+        .filter((p) => rolesQueFaltan(p, modo).some((r) => roles.includes(r) && puedeFirmar(p, r, ctx.userId, ctx.nombre, modo).ok))
         .slice(0, 20)
         .map((p) => ({
-          tipo: "firma",
+          tipo: p.requiere_sobrecupo ? "firma_sobrecupo" : "firma",
           id: p.id,
-          mensaje: `${p.numero} · ${money(Number(p.total) || 0)} espera tu firma`,
+          mensaje: `${p.numero} · ${money(Number(p.total) || 0)} espera tu aprobación${p.requiere_sobrecupo ? ` (sobrecupo ${money(Number(p.sobrecupo_valor) || 0)})` : ""}`,
         }))
+    },
+  },
+
+  // PED-26: al vendedor, lo que paso con SUS pedidos en los ultimos dias.
+  pedidos: {
+    permisos: ["crm_pedidos"],
+    generar: async (ctx, empresaId) => {
+      const sb = await getSupabaseAdminAsSystem()
+      const desde = new Date(Date.now() - 3 * 86_400_000).toISOString()
+      let q = sb
+        .from("crm_pedidos")
+        .select("id, numero, estado, motivo_rechazo, rechazado_en, idpedido_lipgo, actualizado_en")
+        .eq("idempresa", empresaId)
+        .in("estado", ["rechazado", "programado_lipgo", "aprobado"])
+        .gte("actualizado_en", desde)
+      // Un vendedor ve lo suyo; quien no es vendedor, lo que el mismo creo.
+      q = ctx.alcance === "propios" ? filtrarPorVendedor(q, ctx, "vendedor_id") : q.eq("creado_por", ctx.nombre)
+      const { data } = await q.order("actualizado_en", { ascending: false }).limit(20)
+      return (data ?? []).map((p) => ({
+        tipo: p.estado === "rechazado" ? "rechazado" : "aprobado",
+        id: p.id,
+        fecha: p.actualizado_en,
+        mensaje:
+          p.estado === "rechazado"
+            ? `${p.numero} rechazado: ${p.motivo_rechazo ?? "sin motivo"}. Corrígelo y reenvíalo.`
+            : `${p.numero} aprobado${p.idpedido_lipgo ? ` · en LIPgo #${p.idpedido_lipgo}` : ""}`,
+      }))
     },
   },
 }

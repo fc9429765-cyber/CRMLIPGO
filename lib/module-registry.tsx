@@ -169,6 +169,15 @@ export const MODULE_REGISTRY: Record<string, ModuleEntry> = {
     permission: "crm_auditoria",
     fullWidth: true,
   },
+  "Maestros": {
+    component: dynamic(() => import("@/components/crm/maestros/maestros-panel"), { loading: Cargando }),
+    permission: "crm_maestros_admin",
+  },
+  "Importar datos": {
+    component: dynamic(() => import("@/components/crm/importar/importar-panel"), { loading: Cargando }),
+    permission: "crm_importar",
+    fullWidth: true,
+  },
   "Integraciones": {
     component: dynamic(() => import("@/components/crm/integraciones/integraciones-panel"), { loading: Cargando }),
     permission: "crm_integraciones_admin",

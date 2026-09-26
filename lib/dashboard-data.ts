@@ -3,7 +3,7 @@ import {
   FileText, ShoppingCart, CheckCircle, Store, Tag, Wallet, Banknote,
   TrendingUp, Route, Sparkles, BarChart3, Package, UserCheck, Settings,
   Lock, History, Percent, type LucideIcon,
-  Cable,
+  Cable, Database, Upload,
 } from "lucide-react"
 
 export interface Module {
@@ -124,6 +124,8 @@ export const groups: Group[] = [
         modules: [
           { name: "Productos", icon: Package },
           { name: "Vendedores", icon: UserCheck },
+          { name: "Maestros", icon: Database },
+          { name: "Importar datos", icon: Upload },
         ],
       },
       {

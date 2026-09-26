@@ -49,6 +49,21 @@ export interface ProductoCrm {
   fotos: string[]
   descripcion_comercial: string | null
   precio_base: number | null
+
+  // Fase 1 del requerimiento INDUPAN (scripts 193, 194, 196)
+  /** Empresa de LIPgo donde esta creado. Molinos: 3 y 4. */
+  id_empresa?: number
+  /** Owner comercial resuelto (crm_owners.id). null = sin owner: no se vende. */
+  owner_id?: number | null
+  /** Impuesto asignado; null = el de por defecto. */
+  crm_impuesto_id?: number | null
+  /** Tarifa efectiva (la asignada o la de por defecto). */
+  impuesto_pct?: number
+  /** Existencias disponibles en LIPgo, sumando sedes. undefined = no consultado. */
+  stock_disponible?: number | null
+  /** Existencias por sede de despacho (id_empresa de LIPgo → disponible). Es
+   *  el dato que sirve al vender: lo que hay en el centro que va a despachar. */
+  stock_por_sede?: Record<number, number>
 }
 
 export interface SucursalCrm {
@@ -91,5 +106,7 @@ export interface VendedorCrm {
 export function esActivo(valor: unknown): boolean {
   if (typeof valor === "boolean") return valor
   if (valor == null) return true // sin dato se asume activo, como hace LIPgo
-  return ["true", "t", "si", "sí", "1", "y", "yes"].includes(String(valor).trim().toLowerCase())
+  // "s" incluido: en la base hay productos con activo = 'S' (verificado el
+  // 2026-09-26). Sin esto se mostraban como inactivos y no se podian vender.
+  return ["true", "t", "s", "si", "sí", "1", "y", "yes"].includes(String(valor).trim().toLowerCase())
 }

@@ -9,11 +9,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
-  Loader2, Search, Package, ImagePlus, Trash2, Star, Pencil, Camera,
+  Loader2, Search, Package, ImagePlus, Trash2, Star, Pencil, Camera, AlertTriangle,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { getProductosCrm, actualizarDatosComercialesProducto } from "@/lib/crm-catalogos-actions"
 import type { ProductoCrm } from "@/lib/crm-catalogos"
+import { opcionesMaestro } from "@/lib/crm-maestros-actions"
+import { BadgeEstado } from "@/components/crm/ui/modulo"
+import { SubNav, type VistaSubNav } from "@/components/crm/ui/sub-nav"
 import { compressImageIfNeeded } from "@/lib/image-compress"
 import { money } from "@/lib/crm-cotizaciones"
 import { Card, CardContent } from "@/components/ui/card"
@@ -26,7 +29,17 @@ import { Separator } from "@/components/ui/separator"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+
+type Opcion = { valor: string; etiqueta: string }
+
+/** Valores especiales del filtro de owner y del selector de impuesto. */
+const TODOS = "todos"
+const SIN_OWNER = "sin"
+const IMPUESTO_DEFECTO = "__defecto__"
+
+const numeroCO = (n: number) => n.toLocaleString("es-CO", { maximumFractionDigits: 2 })
 
 export function ProductosPanel() {
   const { selectedEmpresaId } = useAuth()
@@ -36,13 +49,27 @@ export function ProductosPanel() {
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState("")
   const [editando, setEditando] = useState<ProductoCrm | null>(null)
+  const [owners, setOwners] = useState<Opcion[]>([])
+  const [impuestos, setImpuestos] = useState<Opcion[]>([])
+  const [filtroOwner, setFiltroOwner] = useState<string>(TODOS)
 
   const cargar = async () => {
-    const res = await getProductosCrm(empresaId)
+    // Todos los owners: INDUPAN vive en la empresa 1 y Molinos en la 3 y la 4.
+    // Sin esto, los productos de Molinos no se podían ni ver ni completar.
+    const [res, oRes, iRes] = await Promise.all([
+      getProductosCrm(empresaId, false, true),
+      opcionesMaestro("owners", empresaId),
+      opcionesMaestro("impuestos", empresaId),
+    ])
     if (res.success) setProductos(res.data ?? [])
     else toast({ title: "No se pudieron cargar", description: res.error, variant: "destructive" })
+    if (oRes.success) setOwners(oRes.data ?? [])
+    if (iRes.success) setImpuestos(iRes.data ?? [])
     setCargando(false)
   }
+
+  const nombreOwner = (id: number | null | undefined) =>
+    id == null ? null : owners.find((o) => o.valor === String(id))?.etiqueta ?? `Owner ${id}`
 
   useEffect(() => {
     cargar()
@@ -51,14 +78,33 @@ export function ProductosPanel() {
 
   const visibles = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
-    if (!t) return productos
-    return productos.filter((p) =>
+    const delOwner =
+      filtroOwner === TODOS
+        ? productos
+        : filtroOwner === SIN_OWNER
+          ? productos.filter((p) => p.owner_id == null)
+          : productos.filter((p) => String(p.owner_id) === filtroOwner)
+    if (!t) return delOwner
+    return delOwner.filter((p) =>
       [p.nombre, p.codigo, p.categoria].some((x) => x?.toLowerCase().includes(t)),
     )
-  }, [productos, busqueda])
+  }, [productos, busqueda, filtroOwner])
 
   const sinFoto = productos.filter((p) => !p.foto_url).length
   const sinPrecio = productos.filter((p) => p.precio_base == null).length
+  const sinOwner = productos.filter((p) => p.owner_id == null).length
+
+  // La píldora "Sin owner" solo aparece si hay alguno: es lo que hay que
+  // corregir, y una píldora vacía no dice nada.
+  const vistasOwner: VistaSubNav[] = [
+    { valor: TODOS, etiqueta: "Todos", contador: productos.length },
+    ...owners.map((o) => ({
+      valor: o.valor,
+      etiqueta: o.etiqueta,
+      contador: productos.filter((p) => String(p.owner_id) === o.valor).length,
+    })),
+    ...(sinOwner > 0 ? [{ valor: SIN_OWNER, etiqueta: "Sin owner", contador: sinOwner }] : []),
+  ]
 
   return (
     <div className="space-y-5">
@@ -77,8 +123,15 @@ export function ProductosPanel() {
 
       {/* Lo que falta por completar, que es lo accionable. Un contador de
           "productos totales" no le dice a nadie qué hacer. */}
-      {(sinFoto > 0 || sinPrecio > 0) && (
+      <SubNav vistas={vistasOwner} activa={filtroOwner} onCambiar={setFiltroOwner} />
+
+      {(sinFoto > 0 || sinPrecio > 0 || sinOwner > 0) && (
         <div className="flex flex-wrap gap-2">
+          {sinOwner > 0 && (
+            <Badge variant="outline" className="border-amber-300 text-amber-700">
+              {sinOwner} sin owner — no se pueden vender
+            </Badge>
+          )}
           {sinPrecio > 0 && (
             <Badge variant="outline" className="border-[var(--chart-3)] text-[var(--chart-3)]">
               {sinPrecio} sin precio base — no se pueden cotizar
@@ -138,6 +191,37 @@ export function ProductosPanel() {
                   )}
                 </div>
 
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {p.owner_id != null ? (
+                    <BadgeEstado className="text-[10px]">{nombreOwner(p.owner_id)}</BadgeEstado>
+                  ) : (
+                    <BadgeEstado tono="advertencia" icono={AlertTriangle} className="text-[10px]">
+                      <span title="No se puede vender hasta que se le asigne un owner">Sin owner</span>
+                    </BadgeEstado>
+                  )}
+                  {p.impuesto_pct != null && (
+                    <span className="text-[11px] tabular-nums text-muted-foreground">
+                      Impuesto {numeroCO(p.impuesto_pct)}%
+                    </span>
+                  )}
+                </div>
+                {/* El owner decide quién factura: sin él, el pedido no sabe a
+                    qué empresa cargarlo, por eso se avisa en la propia tarjeta. */}
+                {p.owner_id == null && (
+                  <p className="text-[11px] text-muted-foreground">
+                    No se puede vender hasta que se le asigne un owner.
+                  </p>
+                )}
+
+                <p className="text-xs">
+                  <span className="text-muted-foreground">Stock: </span>
+                  {p.stock_disponible != null ? (
+                    <span className="font-medium tabular-nums">{numeroCO(p.stock_disponible)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Sin dato</span>
+                  )}
+                </p>
+
                 <div className="flex items-center justify-between">
                   {p.precio_base != null ? (
                     <span className="font-semibold tabular-nums">{money(p.precio_base)}</span>
@@ -158,7 +242,7 @@ export function ProductosPanel() {
       {!cargando && visibles.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            {busqueda ? "Ningún producto coincide." : "No hay productos en el catálogo."}
+            {busqueda || filtroOwner !== TODOS ? "Ningún producto coincide." : "No hay productos en el catálogo."}
           </CardContent>
         </Card>
       )}
@@ -166,6 +250,7 @@ export function ProductosPanel() {
       {editando && (
         <EditorProducto
           producto={editando}
+          impuestos={impuestos}
           empresaId={empresaId}
           onCerrar={() => setEditando(null)}
           onGuardado={() => {
@@ -179,9 +264,10 @@ export function ProductosPanel() {
 }
 
 function EditorProducto({
-  producto, empresaId, onCerrar, onGuardado,
+  producto, impuestos, empresaId, onCerrar, onGuardado,
 }: {
   producto: ProductoCrm
+  impuestos: Opcion[]
   empresaId: number
   onCerrar: () => void
   onGuardado: () => void
@@ -190,6 +276,9 @@ function EditorProducto({
   const [descripcion, setDescripcion] = useState(producto.descripcion_comercial ?? "")
   const [principal, setPrincipal] = useState(producto.foto_url)
   const [galeria, setGaleria] = useState<string[]>(producto.fotos ?? [])
+  const [impuestoId, setImpuestoId] = useState(
+    producto.crm_impuesto_id != null ? String(producto.crm_impuesto_id) : IMPUESTO_DEFECTO,
+  )
   const [subiendo, setSubiendo] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -257,6 +346,8 @@ function EditorProducto({
         descripcion_comercial: descripcion.trim() || null,
         foto_url: principal,
         fotos: galeria.filter((u) => u !== principal),
+        // null = el impuesto por defecto de la empresa, no "sin impuesto".
+        crm_impuesto_id: impuestoId === IMPUESTO_DEFECTO ? null : Number(impuestoId),
       },
       empresaId,
     )
@@ -368,6 +459,23 @@ function EditorProducto({
             <p className="text-xs text-muted-foreground">
               Es la base sobre la que operan las listas de precios. Sin precio
               base, el producto no se puede cotizar.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">Impuesto</Label>
+            <Select value={impuestoId} onValueChange={setImpuestoId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={IMPUESTO_DEFECTO}>— Por defecto —</SelectItem>
+                {impuestos.map((i) => (
+                  <SelectItem key={i.valor} value={i.valor}>{i.etiqueta}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Por defecto se aplica el impuesto predeterminado de Maestros
+              {producto.impuesto_pct != null && ` (hoy ${numeroCO(producto.impuesto_pct)}%)`}.
             </p>
           </div>
 

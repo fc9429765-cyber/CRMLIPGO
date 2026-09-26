@@ -2,116 +2,142 @@
 
 // Venta directa: el caso en que el cliente ya decidió y no hace falta cotizar.
 //
-// Reutiliza el formulario de cotización entero. Internamente crea la
-// cotización con tipo_venta='directa' y la convierte en pedido de inmediato,
-// en vez de tener un segundo formulario casi idéntico que habría que mantener
-// en paralelo. El documento queda igual, solo que su ciclo dura un segundo.
+// El formulario va EN LA PÁGINA y no en un diálogo (PED-01): el vendedor lo
+// abre en el teléfono, de pie en la tienda del cliente, y un diálogo sobre una
+// pantalla pequeña es un recuadro con dos barras de desplazamiento. La barra
+// de acciones queda fija abajo, al alcance del pulgar.
 //
-// El pedido resultante pasa por las mismas dos autorizaciones: saltarse la
-// cotización no es saltarse el control.
+// Por dentro crea la cotización con tipo_venta='directa' y la convierte en
+// pedido de inmediato, en vez de mantener un segundo formulario casi idéntico.
+// Dos salidas:
+//   - "Guardar borrador": el pedido queda en borrador para revisarlo después.
+//   - "Enviar a aprobación": el mismo paso y además lo manda a aprobar. Si hay
+//     sobrecupo no se bloquea (PED-04): el servidor lo marca y lo informa.
+// Saltarse la cotización no es saltarse el control: el pedido pasa por las
+// mismas aprobaciones.
 
 import { useState } from "react"
-import { ShoppingCart, Info } from "lucide-react"
+import { Info, Loader2, Save, Send, ShoppingCart } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { convertirEnPedido } from "@/lib/crm-cotizaciones-actions"
-import { CotizacionForm } from "./cotizacion-form"
+import { convertirEnPedido, crearCotizacion } from "@/lib/crm-cotizaciones-actions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
+import { FormularioVenta, type EstadoEnvio } from "./formulario-venta"
 
 interface Props {
   onNavigate?: (modulo: string) => void
 }
 
+type Accion = "borrador" | "enviar"
+
 export function VentaDirecta({ onNavigate }: Props) {
   const { profile, selectedEmpresaId } = useAuth()
   const empresaId = selectedEmpresaId ?? 1
-  const [abierto, setAbierto] = useState(false)
+  const usuario = profile?.usuario ?? "desconocido"
+  const [enCurso, setEnCurso] = useState<Accion | null>(null)
+  // Cambiar la clave vuelve a montar el formulario limpio tras guardar.
+  const [version, setVersion] = useState(0)
 
-  // El formulario devuelve la cotización creada; aquí se convierte en pedido
-  // sin pedir un paso más al vendedor.
-  const alGuardar = async (cotizacionId?: number) => {
-    setAbierto(false)
+  const registrar = async ({ entrada }: EstadoEnvio, accion: Accion) => {
+    if (!entrada) return
+    setEnCurso(accion)
+    try {
+      const cot = await crearCotizacion({ ...entrada, tipo_venta: "directa" }, usuario, empresaId)
+      if (!cot.success || !cot.data) {
+        // El servidor es la autoridad: su mensaje dice qué regla falló.
+        toast({ title: "No se registró la venta", description: cot.error, variant: "destructive" })
+        return
+      }
 
-    if (!cotizacionId) {
-      onNavigate?.("Cotizaciones")
-      return
+      const ped = await convertirEnPedido(cot.data.id, usuario, empresaId, { solicitar: accion === "enviar" })
+      if (!ped.success || !ped.data) {
+        // La cotización sí quedó creada: se dice dónde está para no perder el trabajo.
+        toast({
+          title: "La venta quedó como cotización",
+          description: `${ped.error ?? "No se generó el pedido"}. Puedes convertirla desde Cotizaciones (${cot.data.numero ?? ""}).`,
+          variant: "destructive",
+        })
+        onNavigate?.("Cotizaciones")
+        return
+      }
+
+      const { numero, solicitud } = ped.data
+      if (accion === "enviar" && solicitud) {
+        // El mensaje del servidor trae el valor del sobrecupo cuando lo hay.
+        toast({
+          title: solicitud.ok ? `Pedido ${numero} enviado` : `Pedido ${numero} quedó en borrador`,
+          description: solicitud.mensaje,
+          variant: solicitud.ok ? undefined : "destructive",
+        })
+      } else {
+        toast({
+          title: `Pedido ${numero} guardado en borrador`,
+          description: "Envíalo a aprobación desde Pedidos cuando esté listo.",
+        })
+      }
+      setVersion((v) => v + 1)
+      onNavigate?.("Pedidos CRM")
+    } finally {
+      setEnCurso(null)
     }
-
-    const res = await convertirEnPedido(cotizacionId, profile?.usuario ?? "desconocido", empresaId)
-
-    if (!res.success) {
-      // La cotización sí quedó creada: se avisa dónde encontrarla para que el
-      // trabajo no se pierda.
-      toast({
-        title: "La venta quedó como cotización",
-        description: `${res.error}. Puedes convertirla desde Cotizaciones.`,
-        variant: "destructive",
-      })
-      onNavigate?.("Cotizaciones")
-      return
-    }
-
-    toast({
-      title: "Pedido creado",
-      description: `${res.data?.numero} · pendiente de autorización`,
-    })
-    onNavigate?.("Pedidos CRM")
   }
 
   return (
-    <div className="space-y-5">
-      <header>
-        <div className="flex items-center gap-2.5">
-          <span className="rounded-lg bg-[var(--chart-1)]/10 p-2 text-[var(--chart-1)]">
-            <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">Nueva venta</h1>
-            <p className="text-sm text-muted-foreground">Para cuando el cliente ya decidió y no hace falta cotizar</p>
-          </div>
+    <div className="space-y-4">
+      <header className="flex items-center gap-2.5">
+        <span className="rounded-lg bg-[var(--chart-1)]/10 p-2 text-[var(--chart-1)]">
+          <ShoppingCart className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h1 className="text-lg font-semibold leading-tight">Nueva venta</h1>
+          <p className="text-sm text-muted-foreground">Para cuando el cliente ya decidió y no hace falta cotizar</p>
         </div>
       </header>
 
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          La venta directa genera el pedido de una vez, sin pasar por cotización.
-          Aun así requiere las dos autorizaciones —contabilidad y gerencia— antes
-          de viajar al sistema operativo.
+        <AlertDescription className="text-xs">
+          Genera el pedido de una vez. Aun así pasa por aprobación antes de viajar a LIPgo; si deja al
+          cliente en sobrecupo se puede enviar igual y lo deciden Cartera y Gerencia.
         </AlertDescription>
       </Alert>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-          <span className="rounded-full bg-[var(--chart-1)]/10 p-4 text-[var(--chart-1)]">
-            <ShoppingCart className="h-8 w-8" aria-hidden="true" />
-          </span>
-
-          <div className="space-y-1">
-            <p className="font-medium">Registrar una venta</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Se captura igual que una cotización: cliente, productos y precios.
-              El precio lo propone la lista del cliente.
-            </p>
-          </div>
-
-          <Dialog open={abierto} onOpenChange={setAbierto}>
-            <DialogTrigger asChild>
-              <Button size="lg">
-                <ShoppingCart className="mr-1.5 h-4 w-4" />
-                Empezar
-              </Button>
-            </DialogTrigger>
-            <CotizacionForm
-              empresaId={empresaId}
-              usuario={profile?.usuario ?? "desconocido"}
-              tipoVenta="directa"
-              onGuardado={alGuardar}
-            />
-          </Dialog>
+        <CardContent className="p-3 sm:p-5">
+          <FormularioVenta
+            key={version}
+            empresaId={empresaId}
+            modo="directa"
+            pie={(estado) => {
+              const deshabilitado = enCurso != null || !estado.entrada || estado.bloqueoCredito
+              return (
+                <>
+                  <Button
+                    variant="outline" className="h-8"
+                    disabled={deshabilitado}
+                    onClick={() => registrar(estado, "borrador")}
+                  >
+                    {enCurso === "borrador"
+                      ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                      : <Save className="mr-1.5 h-4 w-4" aria-hidden="true" />}
+                    Guardar borrador
+                  </Button>
+                  <Button
+                    className="h-8"
+                    disabled={deshabilitado}
+                    onClick={() => registrar(estado, "enviar")}
+                  >
+                    {enCurso === "enviar"
+                      ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                      : <Send className="mr-1.5 h-4 w-4" aria-hidden="true" />}
+                    Enviar a aprobación
+                  </Button>
+                </>
+              )
+            }}
+          />
         </CardContent>
       </Card>
     </div>

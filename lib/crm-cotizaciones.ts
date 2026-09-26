@@ -80,6 +80,10 @@ export interface Cotizacion {
 }
 
 export interface LineaCotizacion {
+  impuesto_id?: number | null
+  impuesto_pct?: number | null
+  base_impuesto?: number | null
+  impuesto_valor?: number | null
   id?: number
   idempresa?: number
   cotizacion_id?: number
@@ -110,19 +114,27 @@ export interface CotizacionConDetalle extends Cotizacion {
   lineas?: LineaCotizacion[]
 }
 
-/** Lo que manda el formulario. El numero y las fechas los pone el servidor. */
+/**
+ * Lo que manda el formulario. Solo INTENCIONES: producto, cantidad y precio
+ * por linea. Precio de lista, impuesto, owner y totales los calcula el
+ * servidor (lib/crm-venta-server.ts), que es lo unico que se guarda.
+ */
 export interface NuevaCotizacion {
   prospecto_id?: number | null
   cliente_id?: number | null
+  /** Sucursal de entrega (PED-05). Un borrador puede no tenerla; se exige al
+   *  enviar el pedido a aprobacion. */
   bodega_id?: number | null
   vendedor_id?: number | null
+  /** Centro de LIPgo que despacha. Si no viene, el primero del owner. */
+  idempresa_despacho?: number | null
   tipo_venta?: TipoVenta
   forma_pago?: FormaPago
   dias_credito?: number
   condicion_pago_id?: number | null
   lista_precio_id?: number | null
   observaciones?: string | null
-  lineas: Omit<LineaCotizacion, "id" | "idempresa" | "cotizacion_id">[]
+  lineas: { producto_id: number; cantidad: number; precio_unitario: number }[]
 }
 
 // ---------------------------------------------------------------- Calculo

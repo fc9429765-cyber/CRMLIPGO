@@ -14,6 +14,8 @@ import { getSupabaseAdminAsSystem } from "@/lib/supabase-admin"
 export type EntidadEvento =
   | "pedido" | "cotizacion" | "recaudo" | "cuenta" | "prospecto"
   | "cliente" | "documento" | "integracion" | "seguridad" | "importacion"
+  // Script 198
+  | "maestro" | "producto" | "vendedor" | "catalogo"
 
 export interface NuevoEvento {
   empresaId: number

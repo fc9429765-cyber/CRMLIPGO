@@ -1,0 +1,290 @@
+"use client"
+
+// Cuenta 360 del cliente (CTA-01..04): cupo, saldo, vencido y mora en un solo
+// diálogo, con las facturas y los pagos que explican cada cifra.
+//
+// Las cifras NO se calculan aquí: vienen de getCuenta360, que usa la misma
+// función que el formulario del pedido y la vista de aging. Recalcularlas en el
+// cliente abriría la puerta a que dos pantallas digan cosas distintas del mismo
+// cliente. Lo único que se calcula aquí son los días de cada fila, con la misma
+// regla (lib/crm-fechas), solo para pintarlos.
+
+import { useEffect, useState } from "react"
+import { Loader2, Wallet, ShieldAlert, FileText, Banknote } from "lucide-react"
+import { getCuenta360, type Cuenta360 } from "@/lib/crm-cuenta-actions"
+import { diasEntre, hoyISO } from "@/lib/crm-fechas"
+import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
+import {
+  BadgeEstado, CabeceraTabla, FilaVacia, MarcoTabla, Td, Th, type TonoEstado,
+} from "@/components/crm/ui/modulo"
+import { MiniKpi, MiniKpiGrid, BarraMeta } from "@/components/crm/ui/mini-kpi"
+import { SubNav } from "@/components/crm/ui/sub-nav"
+import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
+
+const pesos = (n: number) =>
+  n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
+
+const ESTADO_FACTURA: Record<string, { etiqueta: string; tono: TonoEstado }> = {
+  pendiente: { etiqueta: "Pendiente", tono: "advertencia" },
+  parcial: { etiqueta: "Parcial", tono: "proceso" },
+  pagada: { etiqueta: "Pagada", tono: "exito" },
+  anulada: { etiqueta: "Anulada", tono: "neutral" },
+}
+
+/** Estados que siguen debiendo: solo esos pueden estar vencidos. */
+const ABIERTOS = new Set(["pendiente", "parcial"])
+
+type Vista = "facturas" | "pagos"
+
+export function Cuenta360Dialog({
+  clienteId,
+  empresaId,
+  abierto,
+  onCerrar,
+}: {
+  clienteId: number
+  empresaId: number
+  abierto: boolean
+  onCerrar: () => void
+}) {
+  const [datos, setDatos] = useState<Cuenta360 | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(false)
+  const [vista, setVista] = useState<Vista>("facturas")
+
+  useEffect(() => {
+    if (!abierto) return
+    let vigente = true
+    setCargando(true)
+    setError(null)
+    setDatos(null)
+    getCuenta360(clienteId, empresaId).then((res) => {
+      // Si el usuario cerró o cambió de cliente mientras cargaba, esta
+      // respuesta ya no le corresponde a lo que está en pantalla.
+      if (!vigente) return
+      if (res.success && res.data) setDatos(res.data)
+      else setError(res.error ?? "No se pudo cargar la cuenta")
+      setCargando(false)
+    })
+    return () => {
+      vigente = false
+    }
+  }, [abierto, clienteId, empresaId])
+
+  const cli = datos?.cliente
+  const subtitulo = cli
+    ? [
+        cli.documento ? `NIT ${cli.documento}` : "Sin NIT",
+        cli.vendedor_nombre ?? "Sin vendedor",
+        cli.dias_credito > 0 ? `${cli.dias_credito} días de plazo` : "Solo contado",
+      ].join(" · ")
+    : undefined
+
+  return (
+    <DetalleDialog
+      abierto={abierto}
+      onCerrar={onCerrar}
+      icono={Wallet}
+      titulo={cli?.nombre ?? "Cuenta del cliente"}
+      subtitulo={subtitulo}
+      ancho="tabla"
+    >
+      {cargando ? (
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+          <span className="sr-only">Cargando…</span>
+        </div>
+      ) : error ? (
+        <div className="rounded-md border border-red-200 bg-red-50/60 p-3 text-xs text-red-800">
+          <p className="font-semibold">No se pudo cargar la cuenta</p>
+          <p className="mt-0.5 break-words">{error}</p>
+        </div>
+      ) : datos ? (
+        <Contenido datos={datos} vista={vista} onVista={setVista} />
+      ) : null}
+    </DetalleDialog>
+  )
+}
+
+function Contenido({
+  datos, vista, onVista,
+}: {
+  datos: Cuenta360
+  vista: Vista
+  onVista: (v: Vista) => void
+}) {
+  const { cliente, cuenta, porOwner, facturas, pagos } = datos
+  const hoy = hoyISO()
+  const sobrecupo = cuenta.disponible < 0
+
+  return (
+    <>
+      {cliente.bloqueado_cartera && (
+        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-xs font-semibold text-red-800">
+          <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Cliente bloqueado por cartera
+        </div>
+      )}
+
+      <MiniKpiGrid className="sm:grid-cols-4">
+        <MiniKpi etiqueta="Cupo" valor={cuenta.cupo > 0 ? pesos(cuenta.cupo) : "Contado"} />
+        <MiniKpi etiqueta="Saldo" valor={pesos(cuenta.saldo)} />
+        {/* El sobrecupo se muestra en positivo y con su nombre: un "disponible"
+            negativo obliga a pensar el signo para entender que hay un problema. */}
+        <MiniKpi
+          etiqueta={sobrecupo ? "Sobrecupo" : "Disponible"}
+          valor={pesos(Math.abs(cuenta.disponible))}
+          tono={sobrecupo ? "peligro" : "neutral"}
+        />
+        <MiniKpi etiqueta="Vencido" valor={pesos(cuenta.vencido)} tono={cuenta.vencido > 0 ? "peligro" : "neutral"} />
+        <MiniKpi etiqueta="Al día" valor={pesos(cuenta.alDia)} />
+        <MiniKpi
+          etiqueta="Días de mora"
+          valor={cuenta.diasMora}
+          tono={cuenta.diasMora > 0 ? "advertencia" : "neutral"}
+        />
+        <MiniKpi etiqueta="% vencido" valor={`${cuenta.pctVencido.toLocaleString("es-CO")}%`} />
+        <MiniKpi etiqueta="Facturas abiertas" valor={`${cuenta.facturasAbiertas} (${cuenta.facturasVencidas} venc.)`} />
+      </MiniKpiGrid>
+
+      {cuenta.cupo > 0 && (
+        <BarraMeta etiqueta="% del cupo usado" porcentaje={(cuenta.saldo / cuenta.cupo) * 100} />
+      )}
+
+      {/* INDUPAN y Molinos cobran por separado: el total solo no dice a quién
+          se le debe. El cupo es del cliente, por eso aquí no hay disponible. */}
+      {porOwner.length > 1 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {porOwner.map((o) => (
+            <div key={o.ownerId ?? "sin"} className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
+              <p className="font-semibold">{o.ownerNombre}</p>
+              <div className="mt-1 flex justify-between gap-2 tabular-nums">
+                <span className="text-muted-foreground">Saldo</span>
+                <span>{pesos(o.cuenta.saldo)}</span>
+              </div>
+              <div className="flex justify-between gap-2 tabular-nums">
+                <span className="text-muted-foreground">Vencido</span>
+                <span className={cn(o.cuenta.vencido > 0 && "font-semibold text-red-700")}>
+                  {pesos(o.cuenta.vencido)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <SubNav<Vista>
+        vistas={[
+          { valor: "facturas", etiqueta: "Facturas", icono: FileText, contador: facturas.length },
+          { valor: "pagos", etiqueta: "Pagos", icono: Banknote, contador: pagos.length },
+        ]}
+        activa={vista}
+        onCambiar={onVista}
+      />
+
+      {vista === "facturas" ? (
+        <MarcoTabla alto="max-h-[360px]">
+          <Table className="text-xs">
+            <TableHeader>
+              <CabeceraTabla>
+                <Th>Número</Th>
+                <Th>Tipo</Th>
+                <Th>Fecha</Th>
+                <Th>Vence</Th>
+                <Th align="right">Días</Th>
+                <Th align="right">Valor</Th>
+                <Th align="right">Abonado</Th>
+                <Th align="right">Saldo</Th>
+                <Th>Estado</Th>
+              </CabeceraTabla>
+            </TableHeader>
+            <TableBody>
+              {facturas.length === 0 ? (
+                <FilaVacia columnas={9} mensaje="El cliente no tiene facturas en cartera." />
+              ) : (
+                facturas.map((f) => {
+                  // Misma regla del aging: vencida desde el día siguiente al
+                  // vencimiento, y solo si sigue debiendo.
+                  const dias = diasEntre(f.fecha_vencimiento, hoy)
+                  const vencida = ABIERTOS.has(f.estado) && f.saldo > 0 && dias > 0
+                  const est = ESTADO_FACTURA[f.estado] ?? { etiqueta: f.estado, tono: "neutral" as TonoEstado }
+                  return (
+                    <TableRow key={f.id} className={cn("hover:bg-muted/30", vencida && "bg-destructive/5")}>
+                      <Td>
+                        {f.numero_factura ? (
+                          <span className="font-medium">{f.numero_factura}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sin número</span>
+                        )}
+                        {f.pedido_numero && (
+                          <p className="text-[10px] text-muted-foreground">Pedido {f.pedido_numero}</p>
+                        )}
+                      </Td>
+                      <Td>
+                        {f.tipo_documento === "saldo_inicial" ? (
+                          <BadgeEstado tono="info">Saldo inicial</BadgeEstado>
+                        ) : (
+                          <BadgeEstado tono="neutral">Factura</BadgeEstado>
+                        )}
+                      </Td>
+                      <Td className="whitespace-nowrap">{f.fecha_factura}</Td>
+                      <Td className="whitespace-nowrap">{f.fecha_vencimiento}</Td>
+                      <Td num className={cn(vencida && "font-semibold text-red-700")}>
+                        {ABIERTOS.has(f.estado) ? (dias > 0 ? dias : "—") : "—"}
+                      </Td>
+                      <Td num>{pesos(f.valor_original)}</Td>
+                      <Td num>{pesos(f.valor_abonado)}</Td>
+                      <Td num fuerte>{pesos(f.saldo)}</Td>
+                      <Td><BadgeEstado tono={est.tono}>{est.etiqueta}</BadgeEstado></Td>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </MarcoTabla>
+      ) : (
+        <MarcoTabla alto="max-h-[360px]">
+          <Table className="text-xs">
+            <TableHeader>
+              <CabeceraTabla>
+                <Th>Fecha</Th>
+                <Th>Factura</Th>
+                <Th align="right">Valor</Th>
+                <Th>Medio</Th>
+                <Th>Referencia</Th>
+              </CabeceraTabla>
+            </TableHeader>
+            <TableBody>
+              {pagos.length === 0 ? (
+                <FilaVacia columnas={5} mensaje="No hay pagos registrados." />
+              ) : (
+                pagos.map((p) => (
+                  <TableRow key={p.id} className="hover:bg-muted/30">
+                    <Td className="whitespace-nowrap">{p.fecha_pago}</Td>
+                    <Td>{p.numero_factura ?? <span className="text-muted-foreground">Sin número</span>}</Td>
+                    <Td num fuerte>{pesos(p.valor)}</Td>
+                    <Td>{p.medio_pago ?? "—"}</Td>
+                    <Td className="max-w-[180px] truncate">{p.referencia ?? "—"}</Td>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </MarcoTabla>
+      )}
+
+      <FuenteDato>
+        Calculado con la misma regla del aging: una factura está vencida desde el día siguiente a su
+        vencimiento. Consultado a las{" "}
+        {new Date(datos.calculadoEl).toLocaleTimeString("es-CO", {
+          timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit",
+        })}
+        {pagos.length >= 100 && " · Se muestran los últimos 100 pagos."}
+      </FuenteDato>
+    </>
+  )
+}
+
+export default Cuenta360Dialog

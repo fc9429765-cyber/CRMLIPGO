@@ -225,6 +225,20 @@ export async function procesarLote(limite = 20, worker = "cron"): Promise<Resume
     })
 
     const intentos = reg.intentos + 1
+
+    // El documento de origen refleja el estado de SAP (INT-07): el pedido
+    // muestra "En SAP" o "Error SAP" sin tener que abrir la bandeja.
+    if (reg.sistema === "sap" && reg.entidad === "pedido" && reg.entidad_id) {
+      const agotado = !res.ok && (res.reintentable === false || intentos >= reg.max_intentos)
+      if (res.ok || agotado) {
+        await supabase.from("crm_pedidos").update(
+          res.ok
+            ? { sap_estado: "enviado", sap_referencia: res.referencia ?? null, sap_error: null }
+            : { sap_estado: "error", sap_error: res.error ?? "Error desconocido" },
+        ).eq("id", reg.entidad_id)
+      }
+    }
+
     if (res.ok) {
       resumen.enviados++
       await supabase

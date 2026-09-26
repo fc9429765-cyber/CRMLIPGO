@@ -9,6 +9,9 @@
 // usa produccion e inventario.
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { resolverOwner, type CrmOwner } from "@/lib/crm-owners"
+import { leerParamNumber } from "@/lib/crm-parametros-server"
+import { PARAM } from "@/lib/crm-parametros"
 import { esActivo, type ClienteCrm, type ProductoCrm, type SucursalCrm, type VendedorCrm } from "@/lib/crm-catalogos"
 import {
   exigirPermiso, exigirSesion, tienePermiso, filtrarPorVendedor, asegurarClienteVisible, mensajeError,
@@ -174,20 +177,60 @@ export async function actualizarDatosComercialesCliente(
 export async function getProductosCrm(
   empresaId = 1,
   incluirInactivos = false,
+  /**
+   * true = productos de TODOS los owners (INDUPAN en la empresa 1, Molinos en
+   * la 3 y la 4), con owner, impuesto y existencias. false (por defecto) = solo
+   * la empresa indicada, como hasta ahora: la venta sigue viendo lo mismo hasta
+   * que la fase 2 aplique la regla de un owner por pedido.
+   */
+  todosLosOwners = false,
 ): Promise<ActionResult<ProductoCrm[]>> {
   try {
     await exigirSesion()
     const supabase = await getSupabaseAdmin()
-    const { data, error } = await supabase
-      .from("productos")
-      .select("*")
-      .eq("id_empresa", empresaId)
-      .order("nombre")
 
-    if (error) return { success: false, error: error.message }
+    const { data: owners } = await supabase
+      .from("crm_owners").select("id, alias_producto, idempresas_origen, activo").eq("idempresa", empresaId)
+    const listaOwners = (owners ?? []) as Pick<CrmOwner, "id" | "alias_producto" | "idempresas_origen" | "activo">[]
 
-    let filas = (data ?? []).map(normalizarProducto)
+    const empresas = todosLosOwners
+      ? [...new Set([empresaId, ...listaOwners.filter((o) => o.activo).flatMap((o) => o.idempresas_origen)])]
+      : [empresaId]
+
+    const [prods, impuestos] = await Promise.all([
+      supabase.from("productos").select("*").in("id_empresa", empresas).order("nombre"),
+      supabase.from("crm_impuestos").select("id, tarifa, es_default").eq("idempresa", empresaId),
+    ])
+    if (prods.error) return { success: false, error: prods.error.message }
+
+    const tarifas = new Map((impuestos.data ?? []).map((i) => [i.id as number, Number(i.tarifa)]))
+    const porDefecto = (impuestos.data ?? []).find((i) => i.es_default)
+    const tarifaDefecto = porDefecto ? Number(porDefecto.tarifa) : await leerParamNumber(PARAM.IVA, empresaId, 5)
+
+    let filas = (prods.data ?? []).map((f) => {
+      const p = normalizarProducto(f)
+      p.id_empresa = f.id_empresa
+      p.owner_id = resolverOwner({ owner: f.owner, id_empresa: f.id_empresa }, listaOwners)
+      p.crm_impuesto_id = f.crm_impuesto_id ?? null
+      p.impuesto_pct = f.crm_impuesto_id != null ? tarifas.get(f.crm_impuesto_id) ?? tarifaDefecto : tarifaDefecto
+      return p
+    })
     if (!incluirInactivos) filas = filas.filter((p) => p.activo)
+
+    if (todosLosOwners && filas.length) {
+      const { data: inv } = await supabase
+        .from("crm_inventario_producto")
+        .select("producto_id, stock_disponible, por_sede")
+        .in("producto_id", filas.map((p) => p.id))
+      const stock = new Map((inv ?? []).map((i) => [i.producto_id as number, i]))
+      for (const p of filas) {
+        const i = stock.get(p.id)
+        p.stock_disponible = i ? Number(i.stock_disponible) : null
+        p.stock_por_sede = Object.fromEntries(
+          ((i?.por_sede as { idempresa: number; disponible: number }[] | null) ?? []).map((s) => [s.idempresa, Number(s.disponible)]),
+        )
+      }
+    }
 
     return { success: true, data: filas }
   } catch (err) {
@@ -199,7 +242,7 @@ export async function getProductosCrm(
  *  Peso, gramaje, estiba y vida útil los administra LIPgo. */
 export async function actualizarDatosComercialesProducto(
   id: number,
-  datos: Partial<Pick<ProductoCrm, "foto_url" | "fotos" | "descripcion_comercial" | "precio_base">>,
+  datos: Partial<Pick<ProductoCrm, "foto_url" | "fotos" | "descripcion_comercial" | "precio_base" | "crm_impuesto_id">>,
   empresaId = 1,
 ): Promise<ActionResult<ProductoCrm>> {
   try {
@@ -211,6 +254,7 @@ export async function actualizarDatosComercialesProducto(
       fotos: datos.fotos,
       descripcion_comercial: datos.descripcion_comercial,
       precio_base: datos.precio_base,
+      crm_impuesto_id: datos.crm_impuesto_id,
     }
     const limpio = Object.fromEntries(Object.entries(permitido).filter(([, v]) => v !== undefined))
 
@@ -218,11 +262,17 @@ export async function actualizarDatosComercialesProducto(
       return { success: false, error: "No hay nada que actualizar" }
     }
 
+    // El producto puede ser de otra empresa de LIPgo (Molinos esta en la 3 y
+    // la 4): se acepta si es de la empresa o de una empresa de algun owner.
+    const { data: owners } = await supabase
+      .from("crm_owners").select("idempresas_origen").eq("idempresa", empresaId).eq("activo", true)
+    const empresas = [...new Set([empresaId, ...(owners ?? []).flatMap((o) => o.idempresas_origen as number[])])]
+
     const { data, error } = await supabase
       .from("productos")
       .update(limpio)
       .eq("id", id)
-      .eq("id_empresa", empresaId)
+      .in("id_empresa", empresas)
       .select()
       .single()
 

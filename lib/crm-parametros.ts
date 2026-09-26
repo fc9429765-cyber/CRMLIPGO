@@ -71,6 +71,15 @@ export const PARAM = {
   SAP_SUCURSALES: "integracion.sap.sucursales",
   OUTBOX_MAX_INTENTOS: "integracion.outbox.max_intentos",
   OUTBOX_ESPERA_MIN: "integracion.outbox.espera_min",
+
+  // Catalogo e inventario (script 196)
+  CATALOGO_MODO: "catalogo.modo",
+  INVENTARIO_MOSTRAR: "inventario.mostrar_al_vendedor",
+
+  // Flujo del pedido (script 199)
+  PEDIDO_APROBACION_MODO: "pedido.aprobacion_modo",
+  CREDITO_MODO_CUPO: "credito.modo_cupo",
+  PEDIDO_PROYECTAR_AL_APROBAR: "pedido.proyectar_al_aprobar",
 } as const
 
 export type ParamKey = (typeof PARAM)[keyof typeof PARAM]
@@ -118,6 +127,13 @@ export const PARAM_FALLBACK: Record<ParamKey, string> = {
   "integracion.sap.sucursales": "false",
   "integracion.outbox.max_intentos": "5",
   "integracion.outbox.espera_min": "5",
+  // Mismos valores que siembran los scripts 196 y 199: si falta la fila, el
+  // sistema se comporta como con la configuracion de fabrica.
+  "catalogo.modo": "todos",
+  "inventario.mostrar_al_vendedor": "true",
+  "pedido.aprobacion_modo": "secuencial",
+  "credito.modo_cupo": "sobrecupo",
+  "pedido.proyectar_al_aprobar": "true",
 }
 
 /** Como se llama cada grupo en la pantalla de Parametrizacion. */
@@ -133,6 +149,7 @@ export const GRUPOS_PARAMETROS: Record<string, string> = {
   rutas: "Rutas y planificacion",
   seguridad: "Seguridad",
   integracion: "Integraciones (SAP, LIPgo, WhatsApp)",
+  catalogo: "Catálogo e inventario",
 }
 
 export interface CrmParametro {

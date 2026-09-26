@@ -97,6 +97,8 @@ export const MODULE_PERMISSION_MAP: Record<string, keyof UserPermissions> = {
   "Autorizar Pedidos": "crm_autorizar_contabilidad",
   // "Integraciones" es el panel de la bandeja de salida (SAP, WhatsApp).
   "Integraciones": "crm_integraciones_admin",
+  "Maestros": "crm_maestros_admin",
+  "Importar datos": "crm_importar",
 
   // Clientes
   "Gestión de Clientes": "crm_clientes",
