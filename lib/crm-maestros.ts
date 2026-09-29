@@ -5,7 +5,8 @@
 // sola definicion por maestro: si una columna no esta aqui, el servidor no la
 // escribe aunque el navegador la mande.
 
-export type TipoCampoMaestro = "texto" | "numero" | "booleano" | "select" | "lista_texto" | "lista_numero" | "color"
+export type TipoCampoMaestro =
+  | "texto" | "texto_largo" | "numero" | "booleano" | "select" | "lista_texto" | "lista_numero" | "color" | "imagen"
 
 export interface CampoMaestro {
   clave: string
@@ -24,6 +25,7 @@ export interface CampoMaestro {
 
 export type MaestroId =
   | "owners" | "impuestos" | "bancos" | "cuentas_destino" | "medios_pago" | "motivos" | "destinatarios"
+  | "tipos_documento"
 
 export interface DefinicionMaestro {
   id: MaestroId
@@ -60,7 +62,17 @@ export const MAESTROS: Record<MaestroId, DefinicionMaestro> = {
         ayuda: "Para productos que no traen owner escrito. Separadas por coma." },
       { clave: "envia_sap", etiqueta: "Factura por SAP", tipo: "booleano", enTabla: true,
         ayuda: "Solo los owners con esto activo envían pedidos y recaudos a SAP. Molinos va apagado." },
-      { clave: "color", etiqueta: "Color", tipo: "color" },
+      { clave: "color", etiqueta: "Color", tipo: "color",
+        ayuda: "También es el color del estado de cuenta y del recibo de caja." },
+      // Membrete del estado de cuenta y del recibo de caja (script 205, EDC-02).
+      { clave: "nit", etiqueta: "NIT (membrete)", tipo: "texto" },
+      { clave: "logo_url", etiqueta: "Logo (membrete)", tipo: "imagen",
+        ayuda: "PNG o JPG. Se usa en el estado de cuenta." },
+      { clave: "direccion", etiqueta: "Dirección (membrete)", tipo: "texto" },
+      { clave: "telefono", etiqueta: "Teléfono (membrete)", tipo: "texto" },
+      { clave: "correo", etiqueta: "Correo (membrete)", tipo: "texto" },
+      { clave: "pie_documento", etiqueta: "Texto legal del pie", tipo: "texto_largo",
+        ayuda: "Aparece al pie del estado de cuenta. Hasta tres líneas." },
       { clave: "activo", etiqueta: "Activo", tipo: "booleano", enTabla: true },
     ],
   },
@@ -193,8 +205,33 @@ export const MAESTROS: Record<MaestroId, DefinicionMaestro> = {
       { clave: "activo", etiqueta: "Activo", tipo: "booleano", enTabla: true },
     ],
   },
+  tipos_documento: {
+    id: "tipos_documento",
+    tabla: "crm_tipos_documento",
+    titulo: "Tipos de documento",
+    singular: "tipo de documento",
+    descripcion:
+      "Qué documentos se piden a un prospecto antes de volverlo cliente (PRO-01), y cuáles son obligatorios para enviarlo a Cartera.",
+    columnaNombre: "nombre",
+    orden: "orden",
+    campos: [
+      { clave: "entidad", etiqueta: "Para", tipo: "select", obligatorio: true, enTabla: true, soloAlCrear: true,
+        opciones: [
+          { valor: "prospecto", etiqueta: "Prospecto" },
+          { valor: "cliente", etiqueta: "Cliente" },
+          { valor: "recaudo", etiqueta: "Recaudo" },
+        ] },
+      { clave: "codigo", etiqueta: "Código", tipo: "texto", obligatorio: true, soloAlCrear: true },
+      { clave: "nombre", etiqueta: "Documento", tipo: "texto", obligatorio: true, enTabla: true },
+      { clave: "obligatorio", etiqueta: "Obligatorio", tipo: "booleano", enTabla: true,
+        ayuda: "Sin él no se puede enviar el prospecto a Cartera (si el parámetro de exigir documentos está activo)." },
+      { clave: "ayuda", etiqueta: "Indicación para quien lo sube", tipo: "texto" },
+      { clave: "orden", etiqueta: "Orden", tipo: "numero" },
+      { clave: "activo", etiqueta: "Activo", tipo: "booleano", enTabla: true },
+    ],
+  },
 }
 
 export const ORDEN_MAESTROS: MaestroId[] = [
-  "owners", "impuestos", "bancos", "cuentas_destino", "medios_pago", "motivos", "destinatarios",
+  "owners", "impuestos", "bancos", "cuentas_destino", "medios_pago", "motivos", "destinatarios", "tipos_documento",
 ]

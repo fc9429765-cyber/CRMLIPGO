@@ -37,6 +37,10 @@ export interface PagoCuenta {
   valor: number
   medio_pago: string | null
   referencia: string | null
+  /** recaudo, descuento, ajuste, legacy (script 202). */
+  tipo: string
+  recaudo_id: number | null
+  anulado: boolean
 }
 
 export interface Cuenta360 {
@@ -98,11 +102,11 @@ export async function getCuenta360(clienteId: number, empresaId = 1): Promise<Ac
     const idsCuentas = filas.map((c) => c.id as number)
     const idsPedidos = [...new Set(filas.map((c) => c.pedido_id).filter(Boolean))] as number[]
 
-    const [pagos, pedidos, vendedor] = await Promise.all([
+    const [pagos, pedidos, vendedor, favor] = await Promise.all([
       idsCuentas.length
         ? supabase
             .from("crm_pagos")
-            .select("id, cuenta_cobrar_id, fecha_pago, valor, medio_pago, referencia")
+            .select("id, cuenta_cobrar_id, fecha_pago, valor, medio_pago, referencia, tipo, recaudo_id, anulado_en")
             .in("cuenta_cobrar_id", idsCuentas)
             .order("fecha_pago", { ascending: false })
             .limit(100)
@@ -113,7 +117,9 @@ export async function getCuenta360(clienteId: number, empresaId = 1): Promise<Ac
       cli.data.vendedor_asignado
         ? supabase.from("vendedores").select("nombre").eq("idvendedor", cli.data.vendedor_asignado).maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase.from("crm_saldos_favor").select("saldo").eq("idempresa", empresaId).eq("cliente_id", clienteId).is("anulado_en", null),
     ])
+    const saldoFavor = (favor.data ?? []).reduce((s, f) => s + Number(f.saldo), 0)
 
     const numeroPedido = new Map((pedidos.data ?? []).map((p) => [p.id as number, p.numero as string]))
     const numeroFactura = new Map(filas.map((c) => [c.id as number, (c.numero_factura as string) ?? null]))
@@ -158,7 +164,7 @@ export async function getCuenta360(clienteId: number, empresaId = 1): Promise<Ac
           vendedor_asignado: cli.data.vendedor_asignado ?? null,
           vendedor_nombre: (vendedor.data as { nombre?: string } | null)?.nombre ?? null,
         },
-        cuenta: calcularCuenta(facturas, cupo, hoy),
+        cuenta: calcularCuenta(facturas, cupo, hoy, saldoFavor),
         porOwner,
         facturas,
         pagos: (pagos.data ?? []).map((p) => ({
@@ -169,6 +175,9 @@ export async function getCuenta360(clienteId: number, empresaId = 1): Promise<Ac
           valor: Number(p.valor) || 0,
           medio_pago: (p.medio_pago as string) ?? null,
           referencia: (p.referencia as string) ?? null,
+          tipo: (p.tipo as string) ?? "legacy",
+          recaudo_id: (p.recaudo_id as number) ?? null,
+          anulado: p.anulado_en != null,
         })),
         sucursales: sucursales.count ?? 0,
         calculadoEl: new Date().toISOString(),

@@ -191,6 +191,40 @@ const DOMINIOS: Record<string, { permisos: string[]; generar: Generador }> = {
       }))
     },
   },
+
+  // Recaudos: a Cartera, los que esperan aprobacion (primero los que tienen
+  // diferencias con el comprobante); al vendedor, sus rechazados recientes.
+  recaudos: {
+    permisos: ["crm_recaudos_aprobar", "crm_recaudos_registrar", "crm_pagos"],
+    generar: async (ctx, empresaId) => {
+      const sb = await getSupabaseAdminAsSystem()
+      if (tienePermiso(ctx, "crm_recaudos_aprobar")) {
+        const { data } = await sb.from("crm_recaudos")
+          .select("id, numero, valor, ocr_alertas, registrado_nombre, registrado_por")
+          .eq("idempresa", empresaId).eq("estado", "pendiente_aprobacion")
+          .neq("registrado_por", ctx.userId)
+          .order("registrado_en").limit(30)
+        return (data ?? [])
+          .sort((a, b) => (b.ocr_alertas?.length ?? 0) - (a.ocr_alertas?.length ?? 0))
+          .slice(0, 20)
+          .map((r) => ({
+            tipo: r.ocr_alertas?.length ? "recaudo_con_alertas" : "recaudo_pendiente",
+            id: r.id,
+            mensaje: `${r.numero} · ${money(Number(r.valor) || 0)} de ${r.registrado_nombre ?? "vendedor"}${r.ocr_alertas?.length ? " · revisar diferencias" : ""}`,
+          }))
+      }
+      const desde = new Date(Date.now() - 5 * 86_400_000).toISOString()
+      let q = sb.from("crm_recaudos").select("id, numero, valor, motivo_rechazo")
+        .eq("idempresa", empresaId).eq("estado", "rechazado").gte("rechazado_en", desde)
+      q = ctx.alcance === "propios" ? filtrarPorVendedor(q, ctx, "vendedor_id") : q.eq("registrado_por", ctx.userId)
+      const { data } = await q.order("rechazado_en", { ascending: false }).limit(20)
+      return (data ?? []).map((r) => ({
+        tipo: "recaudo_rechazado",
+        id: r.id,
+        mensaje: `${r.numero} rechazado: ${r.motivo_rechazo ?? "sin motivo"}. Corrígelo y reenvíalo.`,
+      }))
+    },
+  },
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ alerta: string }> }) {

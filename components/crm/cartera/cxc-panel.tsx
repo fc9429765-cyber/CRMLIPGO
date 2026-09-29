@@ -10,8 +10,12 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { useAuth } from "@/components/auth-provider"
 import { getCuentasPorCobrar, asignarNumeroFactura } from "@/lib/crm-cartera-actions"
 import {
-  ESTADO_CUENTA_LABEL, diasVencido, money, type CuentaPorCobrar,
+  ESTADO_CUENTA_LABEL, diasVencido, money, rangoVencimiento, type CuentaPorCobrar,
 } from "@/lib/crm-cartera"
+import { getPermisosRecaudo, type PermisosRecaudo } from "@/lib/crm-recaudos-actions"
+import { getParamNumber } from "@/lib/crm-parametros-actions"
+import { PARAM } from "@/lib/crm-parametros"
+import { FacturaDetalleDialog } from "./factura-detalle-dialog"
 import { hoyISO } from "@/lib/crm-fechas"
 import { RegistrarPagoDialog } from "./registrar-pago-dialog"
 import { Button } from "@/components/ui/button"
@@ -38,6 +42,21 @@ export function CxcPanel() {
   const [filtro, setFiltro] = useState("pendientes")
   const [cobrando, setCobrando] = useState<CuentaPorCobrar | null>(null)
   const [facturando, setFacturando] = useState<CuentaPorCobrar | null>(null)
+  const [viendo, setViendo] = useState<CuentaPorCobrar | null>(null)
+  // CAR-01: el vendedor ve la cartera en solo lectura. Abonar y asignar
+  // factura quedan para Cartera; el vendedor reporta pagos en Recaudos.
+  const [permisos, setPermisos] = useState<PermisosRecaudo | null>(null)
+  const [cortes, setCortes] = useState<[number, number, number]>([30, 60, 90])
+  const gestiona = !!permisos?.aprobar
+
+  useEffect(() => {
+    getPermisosRecaudo().then((r) => r.success && r.data && setPermisos(r.data))
+    Promise.all([
+      getParamNumber(PARAM.CARTERA_RANGO_1, empresaId, 30),
+      getParamNumber(PARAM.CARTERA_RANGO_2, empresaId, 60),
+      getParamNumber(PARAM.CARTERA_RANGO_3, empresaId, 90),
+    ]).then(([a, b, c]) => setCortes([a, b, c]))
+  }, [empresaId])
 
   const cargar = async () => {
     const res = await getCuentasPorCobrar(empresaId, {
@@ -87,11 +106,13 @@ export function CxcPanel() {
           <>
             {c.numero_factura ? (
               <span className="text-sm">{c.numero_factura}</span>
+            ) : !gestiona ? (
+              <span className="text-xs text-muted-foreground">Sin número</span>
             ) : (
               <Button
                 variant="ghost" size="sm"
                 className="h-6 px-1.5 text-xs text-muted-foreground"
-                onClick={() => setFacturando(c)}
+                onClick={(e) => { e.stopPropagation(); setFacturando(c) }}
               >
                 <FileText className="mr-1 h-3 w-3" />
                 Asignar
@@ -103,6 +124,11 @@ export function CxcPanel() {
           </>
         )
       },
+    },
+    {
+      accessorKey: "fecha_factura",
+      header: "Contabilización",
+      cell: ({ row }) => <span className="text-sm tabular-nums">{row.original.fecha_factura}</span>,
     },
     {
       // `accessorFn` y no `accessorKey`: se ordena por los días vencidos, que
@@ -118,9 +144,13 @@ export function CxcPanel() {
         return (
           <>
             <span className="text-sm">{c.fecha_vencimiento}</span>
-            {dias > 0 && (
+            {dias > 0 ? (
               <p className="text-[11px] font-medium text-destructive">
                 {dias} día{dias === 1 ? "" : "s"} vencida
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                {-dias} día{dias === -1 ? "" : "s"} por vencer
               </p>
             )}
           </>
@@ -137,6 +167,15 @@ export function CxcPanel() {
       ),
     },
     {
+      accessorKey: "valor_abonado",
+      header: "Abonado",
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums text-muted-foreground">
+          {money(row.original.valor_abonado)}
+        </div>
+      ),
+    },
+    {
       accessorKey: "saldo",
       header: "Saldo",
       cell: ({ row }) => (
@@ -144,6 +183,22 @@ export function CxcPanel() {
           {money(row.original.saldo)}
         </div>
       ),
+    },
+    {
+      id: "saldo_vencido",
+      accessorFn: (c: CuentaPorCobrar) => (diasVencido(c.fecha_vencimiento, hoyISO()) > 0 ? Number(c.saldo) : 0),
+      header: "Saldo vencido",
+      cell: ({ getValue }) => (
+        <div className={`text-right tabular-nums ${Number(getValue()) > 0 ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+          {money(Number(getValue()))}
+        </div>
+      ),
+    },
+    {
+      id: "rango",
+      accessorFn: (c: CuentaPorCobrar) => diasVencido(c.fecha_vencimiento, hoyISO()),
+      header: "Rango",
+      cell: ({ getValue }) => <span className="whitespace-nowrap text-xs">{rangoVencimiento(Number(getValue()), cortes)}</span>,
     },
     {
       accessorKey: "estado",
@@ -169,6 +224,7 @@ export function CxcPanel() {
         )
       },
     },
+    ...(gestiona ? ([
     {
       // Columna de acciones: no ordena ni entra en la búsqueda global, porque
       // no contiene un dato sino un botón.
@@ -176,13 +232,14 @@ export function CxcPanel() {
       header: "",
       enableSorting: false,
       cell: ({ row }) => (
-        <Button size="sm" variant="outline" onClick={() => setCobrando(row.original as CuentaPorCobrar)}>
+        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setCobrando(row.original as CuentaPorCobrar) }}>
           <Banknote className="mr-1 h-3.5 w-3.5" />
           Abonar
         </Button>
       ),
     },
-  ], [])
+    ] as ColumnDef<any, any>[]) : []),
+  ], [gestiona, cortes])
 
   const totales = useMemo(() => {
     const hoy = hoyISO()
@@ -248,6 +305,7 @@ export function CxcPanel() {
         columnas={columnas}
         cargando={cargando}
         placeholderBusqueda="Buscar por cliente o factura…"
+        onFila={(c) => setViendo(c as CuentaPorCobrar)}
         mensajeVacio="No hay cartera pendiente."
         // La factura vencida se tiñe de rojo: es el aviso que se ve antes de
         // leer nada, y sin él la cartera vencida se pierde entre la que no lo está.
@@ -264,6 +322,17 @@ export function CxcPanel() {
           cargar()
         }}
       />
+
+      {viendo && (
+        <FacturaDetalleDialog
+          key={viendo.id}
+          cuenta={viendo}
+          empresaId={empresaId}
+          permisos={permisos}
+          cortes={cortes}
+          onCerrar={() => setViendo(null)}
+        />
+      )}
 
       <DialogoFactura
         cuenta={facturando}

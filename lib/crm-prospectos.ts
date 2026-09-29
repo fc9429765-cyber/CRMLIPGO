@@ -65,6 +65,10 @@ export interface Prospecto {
   creado_por: string | null
   creado_en: string
   actualizado_en: string
+
+  /** Paso a cliente (script 206). Opcional: antes del script no existe. */
+  estado_aprobacion?: "borrador" | "pendiente_aprobacion" | "aprobado" | "rechazado"
+  motivo_rechazo?: string | null
 }
 
 /** Prospecto con su etapa ya resuelta, que es como lo pide la interfaz. */

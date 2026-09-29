@@ -24,6 +24,7 @@ import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
 import { KpiCompacto, TiraKpi } from "@/components/crm/ui/kpi-compacto"
 import { BadgeEstado, Dato, ResumenDatos, type TonoEstado } from "@/components/crm/ui/modulo"
 import { SubNav } from "@/components/crm/ui/sub-nav"
+import { MapeosSap } from "@/components/crm/integraciones/mapeos-sap"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
@@ -62,6 +63,7 @@ export function IntegracionesPanel() {
   const [procesando, setProcesando] = useState(false)
   const [vista, setVista] = useState<Vista>("todos")
   const [detalle, setDetalle] = useState<RegistroOutbox | null>(null)
+  const [seccion, setSeccion] = useState<"bandeja" | "sap">("bandeja")
 
   const cargar = useCallback(async () => {
     const [e, l] = await Promise.all([getEstadoIntegraciones(empresaId), listarOutbox(empresaId)])
@@ -163,6 +165,16 @@ export function IntegracionesPanel() {
         </div>
       </header>
 
+      <SubNav<"bandeja" | "sap">
+        vistas={[
+          { valor: "bandeja", etiqueta: "Bandeja de salida", icono: Send },
+          { valor: "sap", etiqueta: "Mapeos y conexión SAP", icono: Database },
+        ]}
+        activa={seccion}
+        onCambiar={setSeccion}
+      />
+
+      {seccion === "sap" ? <MapeosSap empresaId={empresaId} /> : (<>
       {/* Estado de las conexiones: es lo primero que hay que descartar cuando
           "no llego a SAP". */}
       {estado && (
@@ -226,6 +238,7 @@ export function IntegracionesPanel() {
           onCambio={() => { setDetalle(null); cargar() }}
         />
       )}
+      </>)}
     </div>
   )
 }

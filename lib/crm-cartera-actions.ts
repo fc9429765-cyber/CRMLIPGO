@@ -3,11 +3,12 @@
 // Cartera: cuentas por cobrar, pagos, antigüedad y comisiones.
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getReglasComisionInterna, liquidarComisionInterna } from "@/lib/crm-comisiones-server"
 import { getParam, getParamNumber } from "@/lib/crm-parametros-actions"
 import { PARAM } from "@/lib/crm-parametros"
 import { hoyISO } from "@/lib/crm-fechas"
 import {
-  exigirPermiso, filtrarPorVendedor, asegurarClienteVisible, mensajeError,
+  exigirPermiso, tienePermiso, filtrarPorVendedor, asegurarClienteVisible, mensajeError,
 } from "@/lib/crm-auth"
 import type {
   CuentaPorCobrar, CuentaConAging, Pago, ResumenAging,
@@ -149,11 +150,16 @@ export async function asignarNumeroFactura(
 
 export async function getPagos(cuentaId: number): Promise<ActionResult<Pago[]>> {
   try {
-    await exigirPermiso(
+    const ctx = await exigirPermiso(
       "getPagos",
       "crm_cartera", "crm_pagos", "crm_recaudos_registrar", "crm_recaudos_aprobar",
     )
     const supabase = await getSupabaseAdmin()
+    // El vendedor solo ve los pagos de SUS facturas (CAR-01).
+    if (ctx.alcance === "propios") {
+      const { data: cta } = await supabase.from("crm_cuentas_cobrar").select("vendedor_id").eq("id", cuentaId).maybeSingle()
+      if (!cta || cta.vendedor_id !== ctx.vendedorId) return { success: false, error: "No encontrado" }
+    }
     const { data, error } = await supabase
       .from("crm_pagos")
       .select("*")
@@ -187,9 +193,15 @@ export async function registrarPago(
   empresaId = 1,
 ): Promise<ActionResult<{ pago: Pago; saldoNuevo: number; liquidoComision: boolean }>> {
   try {
-    // Quien registra sale de la sesion; el argumento se conserva por
-    // compatibilidad con los llamados existentes y se ignora.
-    const ctx = await exigirPermiso("registrarPago", "crm_pagos", "crm_recaudos_registrar")
+    // DESDE LA FASE 3 ESTO ES UN AJUSTE DE CARTERA, no la forma de registrar
+    // un pago de cliente: los pagos se reportan como RECAUDOS, con comprobante
+    // y aprobacion (crm-recaudos-actions.ts). Aplicar un pago al instante y sin
+    // revision es justo lo que el requerimiento pide dejar de hacer, asi que
+    // solo lo puede usar Cartera, y queda marcado como ajuste.
+    const ctx = await exigirPermiso("registrarPago", "crm_recaudos_aprobar")
+    if (!tienePermiso(ctx, "crm_recaudos_aprobar")) {
+      return { success: false, error: "Los pagos se reportan como recaudo, con su comprobante. Usa Registrar Pago." }
+    }
     const usuario = ctx.nombre
     if (!pago.valor || pago.valor <= 0) {
       return { success: false, error: "El valor del abono debe ser mayor que cero" }
@@ -232,6 +244,7 @@ export async function registrarPago(
         soporte_url: pago.soporte_url ?? null,
         observacion: pago.observacion ?? null,
         registrado_por: usuario,
+        tipo: "ajuste",
       })
       .select()
       .single()
@@ -259,16 +272,22 @@ export async function registrarPago(
   }
 }
 
-export async function anularPago(pagoId: number, empresaId = 1): Promise<ActionResult<null>> {
+export async function anularPago(pagoId: number, empresaId = 1, motivo = "Anulado por Cartera"): Promise<ActionResult<null>> {
   try {
-    await exigirPermiso("anularPago", "crm_recaudos_aprobar")
+    const ctx = await exigirPermiso("anularPago", "crm_recaudos_aprobar")
+    if (!tienePermiso(ctx, "crm_recaudos_aprobar")) return { success: false, error: "No tienes permiso para anular pagos" }
     const supabase = await getSupabaseAdmin()
-    // El trigger recalcula el saldo al borrar, igual que al insertar.
+    const { data: pago } = await supabase.from("crm_pagos").select("recaudo_id").eq("id", pagoId).maybeSingle()
+    // Un pago que viene de un recaudo se anula anulando el recaudo entero: si
+    // no, el recaudo quedaria "aprobado" con parte de su dinero sin aplicar.
+    if (pago?.recaudo_id) return { success: false, error: "Este pago viene de un recaudo: anula el recaudo" }
+    // Ya no se borra: se marca, y el trigger deja de sumarlo (script 202).
     const { error } = await supabase
       .from("crm_pagos")
-      .delete()
+      .update({ anulado_en: new Date().toISOString(), anulado_por: ctx.nombre, motivo_anulacion: motivo })
       .eq("id", pagoId)
       .eq("idempresa", empresaId)
+      .is("anulado_en", null)
 
     if (error) return { success: false, error: error.message }
     return { success: true, data: null }
@@ -323,64 +342,6 @@ export async function getReglasComision(empresaId = 1): Promise<ActionResult<Reg
   }
 }
 
-/** Sin validacion de permisos: la usa la liquidacion, que puede dispararse al
- *  registrar un pago alguien sin permiso de comisiones. */
-async function getReglasComisionInterna(empresaId: number): Promise<ActionResult<ReglaComision[]>> {
-  const supabase = await getSupabaseAdmin()
-  const { data, error } = await supabase
-    .from("crm_reglas_comision")
-    .select("*")
-    .eq("idempresa", empresaId)
-    .eq("activo", true)
-    .order("prioridad", { ascending: false })
-
-  if (error) return { success: false, error: error.message }
-  return { success: true, data: (data ?? []) as ReglaComision[] }
-}
-
-/**
- * Regla aplicable a una venta, de la más específica a la más general.
- *
- * Entre varias vigentes gana la de mayor prioridad; a igual prioridad, la más
- * específica. Así se puede tener una regla general y excepciones puntuales sin
- * borrar la general.
- */
-async function resolverRegla(
-  empresaId: number,
-  contexto: { vendedorId?: number | null; clienteId?: number | null; categoria?: string | null },
-): Promise<ReglaComision | null> {
-  const res = await getReglasComisionInterna(empresaId)
-  if (!res.success || !res.data?.length) return null
-
-  const hoy = hoyISO()
-  const vigentes = res.data.filter(
-    (r) => r.vigente_desde <= hoy && (!r.vigente_hasta || r.vigente_hasta >= hoy),
-  )
-
-  const aplica = (r: ReglaComision) => {
-    switch (r.ambito) {
-      case "global": return true
-      case "vendedor": return String(contexto.vendedorId ?? "") === r.ambito_valor
-      case "cliente": return String(contexto.clienteId ?? "") === r.ambito_valor
-      case "categoria": return (contexto.categoria ?? "") === r.ambito_valor
-      default: return false
-    }
-  }
-
-  const especificidad: Record<string, number> = {
-    producto: 4, cliente: 3, vendedor: 2, categoria: 1, global: 0,
-  }
-
-  return (
-    vigentes
-      .filter(aplica)
-      .sort((a, b) =>
-        b.prioridad - a.prioridad ||
-        (especificidad[b.ambito] ?? 0) - (especificidad[a.ambito] ?? 0),
-      )[0] ?? null
-  )
-}
-
 /**
  * Liquida la comisión de una cuenta cobrada.
  *
@@ -402,92 +363,6 @@ export async function liquidarComision(
   }
 }
 
-/**
- * Cuerpo de la liquidacion, sin validacion de permisos. Lo usan la accion
- * exportada (que valida) y registrarPago, que liquida al saldar la cuenta: ahi
- * el permiso que cuenta es el de registrar el pago, no el de comisiones.
- *
- * @param usuario nombre tomado de la sesion por quien llama, nunca del navegador.
- */
-async function liquidarComisionInterna(
-  cuentaId: number,
-  usuario: string,
-  empresaId: number,
-): Promise<ActionResult<Comision>> {
-  try {
-    const supabase = await getSupabaseAdmin()
-
-    const { data: cuenta } = await supabase
-      .from("crm_cuentas_cobrar")
-      .select("*")
-      .eq("id", cuentaId)
-      .eq("idempresa", empresaId)
-      .maybeSingle()
-
-    if (!cuenta) return { success: false, error: "La cuenta no existe" }
-    if (!cuenta.vendedor_id) return { success: false, error: "La cuenta no tiene vendedor asignado" }
-
-    // El índice único (vendedor_id, cuenta_cobrar_id) lo impediría igualmente,
-    // pero avisar es mejor que dejar que la base devuelva un 23505.
-    const { data: existente } = await supabase
-      .from("crm_comisiones")
-      .select("id")
-      .eq("cuenta_cobrar_id", cuentaId)
-      .eq("vendedor_id", cuenta.vendedor_id)
-      .maybeSingle()
-
-    if (existente) return { success: false, error: "Esta cuenta ya tiene comisión liquidada" }
-
-    const regla = await resolverRegla(empresaId, {
-      vendedorId: cuenta.vendedor_id,
-      clienteId: cuenta.cliente_id,
-    })
-
-    const porcentaje = regla?.porcentaje ?? (await getParamNumber(PARAM.COMISION_PORCENTAJE, empresaId))
-
-    // La base puede ser el subtotal o el total con IVA. Lo habitual es el
-    // subtotal: comisionar sobre el IVA sería comisionar sobre un impuesto
-    // que la empresa solo recauda para el Estado.
-    const baseConfigurada = regla?.base ?? (await getParam(PARAM.COMISION_BASE, empresaId))
-    let base = Number(cuenta.valor_original) || 0
-
-    if (baseConfigurada === "subtotal" && cuenta.pedido_id) {
-      const { data: pedido } = await supabase
-        .from("crm_pedidos").select("subtotal").eq("id", cuenta.pedido_id).maybeSingle()
-      if (pedido?.subtotal) base = Number(pedido.subtotal)
-    }
-
-    if (regla?.monto_minimo && base < regla.monto_minimo) {
-      return { success: false, error: `La venta no alcanza el mínimo para comisionar (${regla.monto_minimo})` }
-    }
-
-    const valor = Math.round(base * (porcentaje / 100))
-    const periodo = hoyISO().slice(0, 7) // '2026-09'
-
-    const { data, error } = await supabase
-      .from("crm_comisiones")
-      .insert({
-        idempresa: empresaId,
-        vendedor_id: cuenta.vendedor_id,
-        pedido_id: cuenta.pedido_id,
-        cuenta_cobrar_id: cuentaId,
-        regla_id: regla?.id ?? null,
-        periodo,
-        base_calculo: base,
-        porcentaje,
-        valor,
-        liquidado_por: usuario,
-        liquidado_en: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (error) return { success: false, error: error.message }
-    return { success: true, data: data as Comision }
-  } catch (err) {
-    return fallo(err)
-  }
-}
 
 export async function cambiarEstadoComision(
   id: number,

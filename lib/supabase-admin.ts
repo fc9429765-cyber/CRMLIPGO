@@ -1,4 +1,6 @@
-"use server"
+// SIN "use server": este modulo entrega el cliente con la clave service_role
+// (salta RLS). Como accion de servidor, cada funcion exportada seria invocable
+// desde el navegador. Solo lo importa codigo del servidor.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { createServerClient } from "@/lib/supabase-server"

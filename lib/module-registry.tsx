@@ -55,6 +55,12 @@ export const MODULE_REGISTRY: Record<string, ModuleEntry> = {
     component: dynamic(() => import("@/components/crm/prospectos/prospectos-panel"), { loading: Cargando }),
     permission: "crm_prospectos",
   },
+  // Bandeja de Cartera: al aprobar se crea el cliente en LIPgo (PRO-02, PRO-04).
+  "Aprobar Prospectos": {
+    component: dynamic(() => import("@/components/crm/prospectos/aprobar-prospectos-panel"), { loading: Cargando }),
+    permission: "crm_prospectos_aprobar",
+    fullWidth: true,
+  },
   "Embudo de Ventas": {
     component: dynamic(() => import("@/components/crm/prospectos/embudo-kanban"), { loading: Cargando }),
     permission: "crm_embudo",
@@ -103,13 +109,23 @@ export const MODULE_REGISTRY: Record<string, ModuleEntry> = {
   },
 
   // --------------------------------------------------------------- Cartera
+  "Tablero de Cartera": {
+    component: dynamic(() => import("@/components/crm/cartera/tablero-cartera-panel"), { loading: Cargando }),
+    permission: "crm_cartera",
+    fullWidth: true,
+  },
   "Cuentas por Cobrar": {
     component: dynamic(() => import("@/components/crm/cartera/cxc-panel"), { loading: Cargando }),
     permission: "crm_cartera",
   },
   "Registrar Pago": {
-    component: dynamic(() => import("@/components/crm/cartera/pagos-panel"), { loading: Cargando }),
+    component: dynamic(() => import("@/components/crm/recaudos/recaudos-panel"), { loading: Cargando }),
     permission: "crm_pagos",
+  },
+  "Aprobar Recaudos": {
+    component: dynamic(() => import("@/components/crm/recaudos/aprobar-recaudos-panel"), { loading: Cargando }),
+    permission: "crm_recaudos_aprobar",
+    fullWidth: true,
   },
   "Antigüedad de Cartera": {
     component: dynamic(() => import("@/components/crm/cartera/aging-panel"), { loading: Cargando }),

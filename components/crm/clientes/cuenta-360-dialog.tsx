@@ -10,8 +10,16 @@
 // regla (lib/crm-fechas), solo para pintarlos.
 
 import { useEffect, useState } from "react"
-import { Loader2, Wallet, ShieldAlert, FileText, Banknote } from "lucide-react"
+import { Loader2, Wallet, ShieldAlert, FileText, Banknote, Receipt, FolderOpen } from "lucide-react"
 import { getCuenta360, type Cuenta360 } from "@/lib/crm-cuenta-actions"
+import { getTableroCliente, type TableroCliente } from "@/lib/crm-tablero-cartera-actions"
+import { buscarRecaudos } from "@/lib/crm-recaudos-actions"
+import type { RecaudoConDetalle } from "@/lib/crm-recaudos"
+import { GraficaArea, GraficaBarras } from "@/components/crm/ui/graficas"
+import { EstadoCuentaAcciones } from "@/components/crm/cartera/estado-cuenta-acciones"
+import { BotonPdfRecaudo, EstadoRecaudoBadge } from "@/components/crm/recaudos/comun"
+import { RecaudoDetalleDialog } from "@/components/crm/recaudos/recaudo-detalle-dialog"
+import { DocumentosCliente } from "@/components/crm/clientes/documentos-cliente"
 import { diasEntre, hoyISO } from "@/lib/crm-fechas"
 import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
 import {
@@ -35,7 +43,7 @@ const ESTADO_FACTURA: Record<string, { etiqueta: string; tono: TonoEstado }> = {
 /** Estados que siguen debiendo: solo esos pueden estar vencidos. */
 const ABIERTOS = new Set(["pendiente", "parcial"])
 
-type Vista = "facturas" | "pagos"
+type Vista = "facturas" | "pagos" | "recibos" | "documentos"
 
 export function Cuenta360Dialog({
   clienteId,
@@ -101,22 +109,39 @@ export function Cuenta360Dialog({
           <p className="mt-0.5 break-words">{error}</p>
         </div>
       ) : datos ? (
-        <Contenido datos={datos} vista={vista} onVista={setVista} />
+        <Contenido datos={datos} vista={vista} onVista={setVista} empresaId={empresaId} />
       ) : null}
     </DetalleDialog>
   )
 }
 
 function Contenido({
-  datos, vista, onVista,
+  datos, vista, onVista, empresaId,
 }: {
   datos: Cuenta360
   vista: Vista
   onVista: (v: Vista) => void
+  empresaId: number
 }) {
   const { cliente, cuenta, porOwner, facturas, pagos } = datos
   const hoy = hoyISO()
   const sobrecupo = cuenta.disponible < 0
+
+  // DSH-01: antigüedad y recaudo histórico. Se piden aparte para no demorar
+  // la cuenta, que es lo que el usuario abrió a mirar.
+  const [tablero, setTablero] = useState<TableroCliente | null>(null)
+  const [recibos, setRecibos] = useState<RecaudoConDetalle[] | null>(null)
+  const [recibo, setRecibo] = useState<number | null>(null)
+  useEffect(() => {
+    let vivo = true
+    getTableroCliente(cliente.id, empresaId).then((r) => vivo && r.success && r.data && setTablero(r.data))
+    buscarRecaudos(empresaId, { clienteId: cliente.id, estado: ["aprobado", "anulado"] }, 1, 100)
+      .then((r) => vivo && setRecibos(r.success && r.data ? r.data.filas : []))
+    return () => { vivo = false }
+  }, [cliente.id, empresaId])
+  const ownersConSaldo = porOwner
+    .filter((o) => o.ownerId != null && o.cuenta.saldo > 0)
+    .map((o) => ({ id: o.ownerId as number, nombre: o.ownerNombre }))
 
   return (
     <>
@@ -174,16 +199,77 @@ function Contenido({
         </div>
       )}
 
+      {tablero && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border p-2">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">Antigüedad del saldo</p>
+            <GraficaBarras
+              datos={tablero.rangos.map((t) => ({ rango: t.etiqueta === "Al día" ? "Por vencer" : t.etiqueta, valor: t.valor }))}
+              x="rango" y="valor" etiqueta="Saldo" moneda colorear alto={150}
+            />
+          </div>
+          <div className="rounded-md border p-2">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+              Recaudo últimos 12 meses · {pesos(tablero.recaudoMensual.reduce((s, m) => s + m.valor, 0))}
+            </p>
+            <GraficaArea datos={tablero.recaudoMensual} x="etiqueta" y="valor" etiqueta="Recaudo" moneda alto={150} />
+          </div>
+        </div>
+      )}
+
+      <EstadoCuentaAcciones clienteId={cliente.id} empresaId={empresaId} owners={ownersConSaldo} />
+
       <SubNav<Vista>
         vistas={[
           { valor: "facturas", etiqueta: "Facturas", icono: FileText, contador: facturas.length },
           { valor: "pagos", etiqueta: "Pagos", icono: Banknote, contador: pagos.length },
+          { valor: "recibos", etiqueta: "Recibos de caja", icono: Receipt, contador: recibos?.length },
+          { valor: "documentos", etiqueta: "Documentos", icono: FolderOpen },
         ]}
         activa={vista}
         onCambiar={onVista}
       />
 
-      {vista === "facturas" ? (
+      {vista === "documentos" ? (
+        <DocumentosCliente clienteId={cliente.id} empresaId={empresaId} />
+      ) : vista === "recibos" ? (
+        <MarcoTabla alto="max-h-[360px]">
+          <Table className="text-xs">
+            <TableHeader>
+              <CabeceraTabla>
+                <Th>Recibo</Th>
+                <Th>Fecha pago</Th>
+                <Th>Medio</Th>
+                <Th align="right">Valor</Th>
+                <Th align="right">Aplicado</Th>
+                <Th>Estado</Th>
+                <Th> </Th>
+              </CabeceraTabla>
+            </TableHeader>
+            <TableBody>
+              {recibos === null ? (
+                <FilaVacia columnas={7} mensaje="Cargando…" />
+              ) : recibos.length === 0 ? (
+                <FilaVacia columnas={7} mensaje="El cliente no tiene recibos de caja." />
+              ) : (
+                recibos.map((r) => (
+                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setRecibo(r.id)}>
+                    <Td><span className="font-medium">{r.numero}</span></Td>
+                    <Td className="whitespace-nowrap">{r.fecha_documento}</Td>
+                    <Td>{r.medio_pago_nombre ?? "—"}</Td>
+                    <Td num>{pesos(Number(r.valor))}</Td>
+                    <Td num>{pesos(Number(r.total_aplicado))}</Td>
+                    <Td><EstadoRecaudoBadge estado={r.estado} /></Td>
+                    <Td onClick={(e) => e.stopPropagation()}>
+                      <BotonPdfRecaudo recaudoId={r.id} empresaId={empresaId} estado={r.estado} />
+                    </Td>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </MarcoTabla>
+      ) : vista === "facturas" ? (
         <MarcoTabla alto="max-h-[360px]">
           <Table className="text-xs">
             <TableHeader>
@@ -273,6 +359,19 @@ function Contenido({
             </TableBody>
           </Table>
         </MarcoTabla>
+      )}
+
+      {recibo !== null && (
+        <RecaudoDetalleDialog
+          key={recibo}
+          recaudoId={recibo}
+          empresaId={empresaId}
+          // Desde la cuenta solo se consulta y se reimprime (EDC-03).
+          permisos={{ registrar: false, aprobar: false, descuentos: false, soloPropios: true }}
+          maestros={null}
+          onCerrar={() => setRecibo(null)}
+          onCambio={() => {}}
+        />
       )}
 
       <FuenteDato>

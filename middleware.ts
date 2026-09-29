@@ -26,6 +26,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  // Enlace de carga de documentos del prospecto (PRO-05): lo abre alguien que
+  // no tiene usuario. La pagina y su ruta validan el token por su cuenta y no
+  // exponen nada del CRM.
+  if (request.nextUrl.pathname.startsWith("/carga/") || request.nextUrl.pathname.startsWith("/api/publico/")) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(

@@ -22,11 +22,13 @@ const TIPOS_PERMITIDOS = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 
 /** Carpeta → permiso que habilita subir ahí. Sin entrada, no se puede subir:
  *  una carpeta nueva exige decidir explícitamente quién puede escribir en ella. */
-const PERMISO_POR_CARPETA: Record<string, "crm_productos" | "crm_vendedores" | "crm_actividades" | "crm_pagos"> = {
+const PERMISO_POR_CARPETA: Record<string, "crm_productos" | "crm_vendedores" | "crm_actividades" | "crm_pagos" | "crm_maestros_admin"> = {
   productos: "crm_productos",
   vendedores: "crm_vendedores",
   actividades: "crm_actividades",
   soportes: "crm_pagos",
+  // Logos del membrete de cada owner (Maestros → Owners).
+  logos: "crm_maestros_admin",
 }
 
 export async function POST(req: NextRequest) {

@@ -59,6 +59,12 @@ export interface Pago {
   observacion: string | null
   registrado_por: string | null
   creado_en: string
+  // Script 202
+  tipo?: "legacy" | "recaudo" | "descuento" | "nota_credito" | "ajuste" | string
+  recaudo_id?: number | null
+  anulado_en?: string | null
+  anulado_por?: string | null
+  motivo_anulacion?: string | null
 }
 
 export const MEDIOS_PAGO = [
@@ -136,6 +142,20 @@ export function diasVencido(fechaVencimiento: string, hoy: string): number {
   const [a1, m1, d1] = hoy.split("-").map(Number)
   const [a2, m2, d2] = fechaVencimiento.split("-").map(Number)
   return Math.round((Date.UTC(a1, m1 - 1, d1) - Date.UTC(a2, m2 - 1, d2)) / 86_400_000)
+}
+
+/**
+ * Rango de vencimiento de CAR-03: "Al día", "1–30", "31–60", "61–90", ">90".
+ * Los cortes salen de los parametros cartera.rango_1/2/3_hasta, asi que
+ * cambiarlos reclasifica sin tocar codigo.
+ */
+export function rangoVencimiento(dias: number, cortes: [number, number, number] = [30, 60, 90]): string {
+  const [a, b, c] = cortes
+  if (dias <= 0) return "Al día"
+  if (dias <= a) return `1–${a}`
+  if (dias <= b) return `${a + 1}–${b}`
+  if (dias <= c) return `${b + 1}–${c}`
+  return `>${c}`
 }
 
 export const money = (n: number) =>

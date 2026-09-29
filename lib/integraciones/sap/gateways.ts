@@ -52,10 +52,19 @@ export const sapSimulado: SapGateway = {
       }
     }
     const referencia = `MOCK-${docEntryFicticio(llave)}`
+    // El simulado acepta aunque falten codigos (criterio 2: probar el flujo
+    // sin SAP), pero deja a la vista el documento que se habria mandado y lo
+    // que falta mapear antes de pasar a live.
     return {
       ok: true,
       referencia,
-      respuesta: { simulado: true, operacion, DocEntry: referencia },
+      respuesta: {
+        simulado: true, operacion, DocEntry: referencia,
+        endpoint: payload.__endpoint ?? null,
+        documento_sap: payload.sap ?? null,
+        falta_mapear: payload.__faltantes ?? [],
+        avisos: payload.__avisos ?? [],
+      },
       request: { operacion, payload },
       httpStatus: 201,
     }
@@ -112,7 +121,7 @@ export const sapReal: SapGateway = {
   modo: "live",
   async ejecutar(operacion, payload, llave) {
     const base = process.env.SAP_SL_URL
-    const endpoint = ENDPOINT[operacion]
+    const endpoint = (payload.__endpoint as string | undefined) ?? ENDPOINT[operacion]
     if (!base || !process.env.SAP_COMPANY_DB || !process.env.SAP_USER || !process.env.SAP_PASSWORD) {
       return { ok: false, reintentable: false, error: "Faltan SAP_SL_URL, SAP_COMPANY_DB, SAP_USER o SAP_PASSWORD." }
     }
@@ -120,8 +129,13 @@ export const sapReal: SapGateway = {
       return { ok: false, reintentable: false, error: `Operación SAP desconocida: "${operacion}"` }
     }
 
+    // Solo se manda un documento ya traducido (lib/integraciones/sap/traductor):
+    // el evento crudo del CRM no es un documento que SAP entienda.
+    if (!payload.sap) {
+      return { ok: false, reintentable: false, error: "El evento no se tradujo a documento SAP (revisa Mapeos SAP)." }
+    }
     const udf = process.env.SAP_UDF_REFERENCIA || "U_CRM_REF"
-    const cuerpo = { ...(payload.sap as Record<string, unknown> | undefined ?? payload), [udf]: llave }
+    const cuerpo = { ...(payload.sap as Record<string, unknown>), [udf]: llave }
 
     try {
       const cookie = await login(base)
@@ -130,7 +144,9 @@ export const sapReal: SapGateway = {
       // ¿Ya existe? (idempotencia)
       try {
         const filtro = encodeURIComponent(`${udf} eq '${llave.replace(/'/g, "''")}'`)
-        const q = await fetch(`${base}/${endpoint}?$filter=${filtro}&$select=DocEntry,CardCode`, { headers })
+        // Los socios de negocio no tienen DocEntry: su llave es CardCode.
+        const campos = endpoint === "BusinessPartners" ? "CardCode" : "DocEntry,CardCode"
+        const q = await fetch(`${base}/${endpoint}?$filter=${filtro}&$select=${campos}`, { headers })
         if (q.ok) {
           const d = (await q.json()) as { value?: { DocEntry?: number; CardCode?: string }[] }
           const previo = d.value?.[0]
@@ -177,6 +193,35 @@ export const sapReal: SapGateway = {
       return { ok: false, reintentable: true, error: e instanceof Error ? e.message : "Error de red con SAP" }
     }
   },
+}
+
+/**
+ * Prueba de conexion con Service Layer, sin tocar ningun documento: inicia
+ * sesion, lee un socio de negocio y cierra la sesion. Sirve para confirmar
+ * URL, base y credenciales antes de encender un flujo.
+ */
+export async function probarServiceLayer(): Promise<{ ok: boolean; ms: number; detalle: string }> {
+  const t0 = Date.now()
+  const base = process.env.SAP_SL_URL
+  const faltan = ["SAP_SL_URL", "SAP_COMPANY_DB", "SAP_USER", "SAP_PASSWORD"].filter((k) => !process.env[k])
+  if (faltan.length) return { ok: false, ms: 0, detalle: `Faltan variables de entorno: ${faltan.join(", ")}` }
+  try {
+    const login = await fetch(`${base}/Login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ CompanyDB: process.env.SAP_COMPANY_DB, UserName: process.env.SAP_USER, Password: process.env.SAP_PASSWORD }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!login.ok) return { ok: false, ms: Date.now() - t0, detalle: `SAP rechazó el inicio de sesión (HTTP ${login.status}). Revisa base y credenciales.` }
+    const cookie = (login.headers.get("set-cookie") ?? "").split(/,(?=\s*\w+=)/).map((c) => c.split(";")[0].trim())
+      .filter((c) => c.startsWith("B1SESSION") || c.startsWith("ROUTEID")).join("; ")
+    const q = await fetch(`${base}/BusinessPartners?$top=1&$select=CardCode`, { headers: { Cookie: cookie }, signal: AbortSignal.timeout(15_000) })
+    await fetch(`${base}/Logout`, { method: "POST", headers: { Cookie: cookie } }).catch(() => undefined)
+    if (!q.ok) return { ok: false, ms: Date.now() - t0, detalle: `Inició sesión pero no pudo leer socios de negocio (HTTP ${q.status}). Revisa permisos del usuario SAP.` }
+    return { ok: true, ms: Date.now() - t0, detalle: `Conectado a ${process.env.SAP_COMPANY_DB}` }
+  } catch (e) {
+    return { ok: false, ms: Date.now() - t0, detalle: e instanceof Error ? `Sin respuesta de SAP: ${e.message}` : "Sin respuesta de SAP" }
+  }
 }
 
 export function getSapGateway(modo: ModoSap): SapGateway {

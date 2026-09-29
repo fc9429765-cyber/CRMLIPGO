@@ -10,6 +10,7 @@
 // cumple su funcion y el vendedor termina discutiendo precios de hace meses.
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { exigirPermiso } from "@/lib/crm-auth"
 import { subirPdf } from "@/lib/pdf-actions"
 import { numeroALetrasPesos } from "@/lib/numero-a-letras"
 import type { CotizacionConDetalle } from "@/lib/crm-cotizaciones"
@@ -41,6 +42,9 @@ export async function generarPdfCotizacion(
   empresaId = 1,
 ): Promise<ResultadoPdfCotizacion> {
   try {
+    // Era invocable desde el navegador sin control: cualquiera con sesion
+    // generaba el PDF de cualquier cotizacion, con precios y datos del cliente.
+    const ctx = await exigirPermiso("generarPdfCotizacion", "crm_cotizaciones", "crm_pedidos")
     const supabase = await getSupabaseAdmin()
 
     const [cabRes, detRes] = await Promise.all([
@@ -53,6 +57,9 @@ export async function generarPdfCotizacion(
     }
 
     const cot = cabRes.data as CotizacionConDetalle
+    if (ctx.alcance === "propios" && cot.vendedor_id !== ctx.vendedorId) {
+      return { success: false, error: "No encontrado" }
+    }
     const lineas = detRes.data ?? []
 
     // Destinatario: cliente o prospecto, segun de donde venga.

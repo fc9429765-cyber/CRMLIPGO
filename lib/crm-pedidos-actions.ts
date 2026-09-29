@@ -552,10 +552,13 @@ async function trasAprobacion(pedidoId: number, empresaId: number, ctx: Contexto
           numero: p.numero, cliente_id: p.cliente_id, cliente: p.cliente_nombre, fecha: p.fecha,
           fecha_programada: p.fecha_programada, forma_pago: p.forma_pago, dias_credito: p.dias_credito,
           total: p.total, idpedido_lipgo: p.idpedido_lipgo, owner: owner.codigo,
+          // Ids que el traductor convierte a codigos SAP al enviar (Mapeos SAP).
+          sucursal_id: p.bodega_id, vendedor_id: p.vendedor_id, centro_id: p.idempresa_despacho ?? null,
         },
         lineas: (p.lineas ?? []).map((l) => ({
           producto_id: l.producto_id, producto: l.producto_nombre, cantidad: l.cantidad,
-          precio_unitario: l.precio_unitario, impuesto_pct: l.impuesto_pct, impuesto_valor: l.impuesto_valor,
+          precio_unitario: l.precio_unitario, impuesto_id: l.impuesto_id ?? null, impuesto_pct: l.impuesto_pct,
+          impuesto_valor: l.impuesto_valor,
         })),
       },
     })

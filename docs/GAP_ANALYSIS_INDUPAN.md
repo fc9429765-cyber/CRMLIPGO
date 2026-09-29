@@ -166,3 +166,39 @@ Estos se encontraron consultando la base real (solo lectura) y leyendo el códig
 5. **Configurar `CRON_SECRET`** en Vercel para que corra la bandeja de integraciones.
 6. Para WhatsApp: las mismas variables de LIPgo (`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) y `WHATSAPP_ENABLED=true` cuando se quiera enviar de verdad. El celular de Jefferson.
 7. Las preguntas abiertas de la sección 15 del requerimiento, en especial la plantilla del estado de cuenta y el método de conexión a SAP.
+
+## 10. Estado al cierre de la fase 6 (2026-09-29)
+
+Las secciones anteriores describen la brecha encontrada al inicio. Esto es lo que quedó construido.
+
+| Fase | Scripts | Qué quedó | Probado |
+|---|---|---|---|
+| 0 | 190–192 | Seguridad en el servidor, bitácora, bandeja de integraciones, alertas | Pruebas unitarias |
+| 1 | 193–198 | Owners, impuestos, maestros de cartera, catálogo por cliente, importación con simulación, Cuenta 360 | Pruebas unitarias |
+| 2 | 199–200 | Pedido completo: borrador, sobrecupo, doble aprobación Cartera → Gerencia, rechazo y reenvío, historial, proyección a LIPgo con CxC en la misma transacción | Punta a punta contra la base (36/36) |
+| 3 | 201–204 | Recaudos con comprobante, IA de comprobantes, aplicación a la factura más vencida, saldo a favor, bandeja de Cartera, documento de pago y recibo de caja, cartera del vendedor en solo lectura | Funciones de la base (10/10); pantallas pendientes de la prueba del usuario |
+| 3b | 204 | **Cierre del acceso anónimo** a tablas, vistas y funciones `crm_*` | Verificado con la clave anónima |
+| 4 | 205 | Tablero de cartera consolidado, tablero por cliente, estado de cuenta en PDF por owner, compartir por WhatsApp con enlace temporal | PDF generado y revisado |
+| 5 | 206 | Expediente del prospecto, enlace público de carga, aprobación que crea cliente y sucursal en LIPgo, NIT repetido → vincular, carpeta de documentos del cliente | Enlace y NIT repetido (17/17); la conversión real en LIPgo, pendiente de autorización |
+| 6 | 207 | Traductor CRM → SAP B1 (pedidos, pagos, clientes), mapeos de códigos, prueba de conexión, cierre de estados viejos de pedido, evaluación del portal (`docs/EVALUACION_PORTAL_CLIENTE.md`) | Traductor con pruebas unitarias; sin SAP real para probar |
+
+**Criterios de aceptación (sección 13):**
+
+| # | Criterio | Estado |
+|---|---|---|
+| 1 | Flujo completo con SAP apagado | Construido; falta la corrida de punta a punta del usuario en pantalla |
+| 2 | Con `mock`, los eventos pasan a enviados | Sí; además el simulado muestra el documento SAP que se habría mandado y lo que falta mapear |
+| 3 | Pasar a `live` es solo configuración | Sí: variables `SAP_*`, interruptor por flujo y códigos en Mapeos SAP. Lo que falte mapear queda en espera sin gastar intentos |
+| 4 | Molinos nunca va a SAP | Sí, con prueba automática |
+| 5 | $15M sobre dos facturas de $10M → 10/5 | Sí, con prueba automática y prueba contra la base |
+| 6 | Sobrecupo visible y enviable | Sí |
+| 7 | El vendedor no edita facturas ni aplica descuentos (API) | Sí en el servidor; se vuelve obligatorio al pasar `seguridad.modo` a `enforce` |
+| 8 | Foto ilegible rechazada con motivo | Sí |
+| 9 | Historial del pedido rechazado y reenviado | Sí |
+
+**Pendiente:**
+
+- **RNF-08, datos de demostración:** `scripts/seed/demo_crm.sql` y su limpieza `scripts/seed/demo_crm_limpiar.sql`, con candado (`set crm.demo = 'si';`). Como la base es la de LIPgo, los clientes DEMO se ven en LIPgo: correrlo idealmente en una rama de la base, o en producción solo para una demo puntual y limpiar después.
+- **`seguridad.modo` sigue en `log`:** pasarlo a `enforce` cuando los vendedores estén vinculados a sus usuarios y los clientes asignados.
+- **Tablas de LIPgo legibles sin sesión** (`permisos_usuarios`, `profiles`, `whatsapp_mensajes`): decisión de INDUPAN, probando en LIPgo.
+- **Para encender SAP:** `SAP_SL_URL`, `SAP_COMPANY_DB`, `SAP_USER`, `SAP_PASSWORD` en Vercel, crear en SAP el campo de usuario `U_CRM_REF` (evita duplicados), cargar los códigos en Mapeos SAP, códigos SAP de impuestos y cuentas destino en Maestros, probar la conexión, pasar a `mock`, revisar, y luego `live` flujo por flujo.

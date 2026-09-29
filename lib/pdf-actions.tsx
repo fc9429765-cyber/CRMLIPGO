@@ -1,4 +1,9 @@
-"use server"
+// SIN "use server" A PROPOSITO (se quito en la fase 3). Con la directiva,
+// estas funciones eran invocables desde el navegador sin ningun control:
+// imagenABase64 hacia que el servidor descargara CUALQUIER URL que se le
+// pasara (incluidas direcciones internas), y subirPdf/subirArchivo dejaban
+// subir archivos arbitrarios al bucket publico. Son utilidades del servidor:
+// solo las importan otros modulos del servidor.
 
 // Utilidades compartidas para generar PDF.
 //

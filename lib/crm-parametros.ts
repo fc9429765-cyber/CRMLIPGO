@@ -80,6 +80,23 @@ export const PARAM = {
   PEDIDO_APROBACION_MODO: "pedido.aprobacion_modo",
   CREDITO_MODO_CUPO: "credito.modo_cupo",
   PEDIDO_PROYECTAR_AL_APROBAR: "pedido.proyectar_al_aprobar",
+
+  // Documentos y lectura de comprobantes (script 201)
+  DOCUMENTOS_URL_MINUTOS: "documentos.url_minutos",
+  IA_LECTURA_COMPROBANTES: "ia.lectura_comprobantes",
+  IA_MODELO_OCR: "ia.modelo_ocr",
+
+  // Estado de cuenta (script 205)
+  ESTADO_CUENTA_DIAS_MOVIMIENTOS: "estado_cuenta.dias_movimientos",
+  ESTADO_CUENTA_ENLACE_DIAS: "estado_cuenta.enlace_dias",
+  ESTADO_CUENTA_NOTA: "estado_cuenta.nota",
+
+  // Prospectos: expediente y aprobacion (script 206)
+  PROSPECTO_EXIGIR_DOCUMENTOS: "prospecto.exigir_documentos",
+  PROSPECTO_ENLACE_DIAS: "prospecto.enlace_dias",
+
+  // SAP (script 207)
+  SAP_PREFIJO_CLIENTE: "integracion.sap.prefijo_cliente",
 } as const
 
 export type ParamKey = (typeof PARAM)[keyof typeof PARAM]
@@ -134,6 +151,15 @@ export const PARAM_FALLBACK: Record<ParamKey, string> = {
   "pedido.aprobacion_modo": "secuencial",
   "credito.modo_cupo": "sobrecupo",
   "pedido.proyectar_al_aprobar": "true",
+  "documentos.url_minutos": "10",
+  "ia.lectura_comprobantes": "true",
+  "ia.modelo_ocr": "claude-sonnet-5",
+  "estado_cuenta.dias_movimientos": "90",
+  "estado_cuenta.enlace_dias": "7",
+  "estado_cuenta.nota": "Si ya realizó el pago, por favor haga caso omiso de este estado de cuenta y envíenos el soporte.",
+  "prospecto.exigir_documentos": "true",
+  "prospecto.enlace_dias": "7",
+  "integracion.sap.prefijo_cliente": "C",
 }
 
 /** Como se llama cada grupo en la pantalla de Parametrizacion. */
@@ -150,6 +176,7 @@ export const GRUPOS_PARAMETROS: Record<string, string> = {
   seguridad: "Seguridad",
   integracion: "Integraciones (SAP, LIPgo, WhatsApp)",
   catalogo: "Catálogo e inventario",
+  documentos: "Documentos y comprobantes",
 }
 
 export interface CrmParametro {

@@ -16,6 +16,7 @@ import {
 } from "./config"
 import { getSapGateway } from "./sap/gateways"
 import { canalWhatsapp } from "./whatsapp"
+import { recordarCardCode, traducirEvento } from "./sap/contexto"
 import type { AvisoEstandar, FlujoSap, ModoSap, RegistroOutbox, ResultadoEnvio, SistemaExterno } from "./tipos"
 
 /** Modo de SAP de este despliegue. */
@@ -197,11 +198,37 @@ export async function procesarLote(limite = 20, worker = "cron"): Promise<Resume
       continue
     }
 
+    // SAP: el evento se traduce a documento SAP con los codigos de HOY. Si en
+    // modo real falta un codigo (un producto sin ItemCode…), el registro
+    // espera sin gastar intentos y dice que mapear: al agregarlo sale solo.
+    let payloadEnvio = reg.payload
+    if (reg.sistema === "sap") {
+      const t = await traducirEvento(reg.idempresa, reg.operacion, reg.payload)
+      if (!t.ok && modo === "live") {
+        await supabase
+          .from("crm_integracion_outbox")
+          .update({
+            estado: "pendiente",
+            bloqueado_por: null,
+            bloqueado_en: null,
+            ultimo_error: `Falta en Mapeos SAP: ${t.faltantes.join("; ")}`,
+            proximo_intento_en: new Date(Date.now() + 60 * 60_000).toISOString(),
+            actualizado_en: new Date().toISOString(),
+          })
+          .eq("id", reg.id)
+        resumen.enEspera++
+        continue
+      }
+      payloadEnvio = t.ok
+        ? { ...reg.payload, sap: t.cuerpo, __endpoint: t.endpoint, __avisos: t.avisos }
+        : { ...reg.payload, __faltantes: t.faltantes, __avisos: t.avisos }
+    }
+
     const t0 = Date.now()
     let res: ResultadoEnvio
     try {
       if (reg.sistema === "sap") {
-        res = await getSapGateway(modo).ejecutar(reg.operacion, reg.payload, reg.idempotency_key)
+        res = await getSapGateway(modo).ejecutar(reg.operacion, payloadEnvio, reg.idempotency_key)
       } else if (reg.sistema === "whatsapp") {
         res = await canalWhatsapp.enviarAviso(reg.payload as unknown as AvisoEstandar)
       } else {
@@ -228,15 +255,22 @@ export async function procesarLote(limite = 20, worker = "cron"): Promise<Resume
 
     // El documento de origen refleja el estado de SAP (INT-07): el pedido
     // muestra "En SAP" o "Error SAP" sin tener que abrir la bandeja.
-    if (reg.sistema === "sap" && reg.entidad === "pedido" && reg.entidad_id) {
+    const TABLA_SAP: Record<string, string> = { pedido: "crm_pedidos", recaudo: "crm_recaudos", prospecto: "crm_prospectos" }
+    if (reg.sistema === "sap" && TABLA_SAP[reg.entidad] && reg.entidad_id) {
       const agotado = !res.ok && (res.reintentable === false || intentos >= reg.max_intentos)
       if (res.ok || agotado) {
-        await supabase.from("crm_pedidos").update(
+        await supabase.from(TABLA_SAP[reg.entidad]).update(
           res.ok
             ? { sap_estado: "enviado", sap_referencia: res.referencia ?? null, sap_error: null }
             : { sap_estado: "error", sap_error: res.error ?? "Error desconocido" },
         ).eq("id", reg.entidad_id)
       }
+    }
+
+    // Cliente creado en SAP: su CardCode queda mapeado para lo que venga.
+    if (res.ok && modo === "live" && reg.sistema === "sap" && reg.operacion === "crear_cliente" && res.referencia) {
+      const idLipgo = (reg.payload as { cliente?: { id_lipgo?: number } }).cliente?.id_lipgo
+      if (idLipgo) await recordarCardCode(reg.idempresa, idLipgo, res.referencia)
     }
 
     if (res.ok) {

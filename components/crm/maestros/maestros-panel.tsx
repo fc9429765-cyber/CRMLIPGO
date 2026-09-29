@@ -27,6 +27,7 @@ import { BadgeEstado } from "@/components/crm/ui/modulo"
 import { SubNav } from "@/components/crm/ui/sub-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -396,6 +397,14 @@ function Campo({
         </div>
       )
       break
+    case "texto_largo":
+      control = (
+        <Textarea id={id} rows={3} value={texto} onChange={(e) => onCambio(e.target.value)} disabled={bloqueado} className="text-sm" />
+      )
+      break
+    case "imagen":
+      control = <CampoImagen id={id} valor={texto} bloqueado={bloqueado} onCambio={onCambio} />
+      break
     case "numero":
       control = (
         <Input id={id} type="number" inputMode="decimal" value={texto} onChange={(e) => onCambio(e.target.value)} disabled={bloqueado} className={cn(claseInput, "tabular-nums")} />
@@ -427,6 +436,62 @@ function Campo({
       {control}
       {c.ayuda && <p className="text-[11px] leading-relaxed text-muted-foreground">{c.ayuda}</p>}
       {bloqueado && <p className="text-[11px] text-muted-foreground">Solo se define al crear.</p>}
+    </div>
+  )
+}
+
+/**
+ * Imagen de un maestro (el logo del owner). Se sube a la carpeta "logos" del
+ * Storage del proyecto: el generador del estado de cuenta solo descarga
+ * imagenes de ahi, asi que pegar una URL de otro sitio no funcionaria.
+ */
+function CampoImagen({
+  id, valor, bloqueado, onCambio,
+}: {
+  id: string
+  valor: string
+  bloqueado: boolean
+  onCambio: (v: unknown) => void
+}) {
+  const [subiendo, setSubiendo] = useState(false)
+  const subir = async (f: File | null) => {
+    if (!f) return
+    setSubiendo(true)
+    const fd = new FormData()
+    fd.append("file", f)
+    fd.append("carpeta", "logos")
+    fd.append("referencia", "owner")
+    try {
+      const r = await fetch("/api/crm/upload-imagen", { method: "POST", body: fd })
+      const j = (await r.json()) as { success: boolean; url?: string; error?: string }
+      if (!j.success || !j.url) throw new Error(j.error ?? "No se pudo subir")
+      onCambio(j.url)
+    } catch (err) {
+      toast({ title: "No se subió la imagen", description: err instanceof Error ? err.message : undefined, variant: "destructive" })
+    } finally {
+      setSubiendo(false)
+    }
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-14 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+        {valor ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={valor} alt="Logo" className="max-h-full max-w-full object-contain" />
+        ) : (
+          <span className="text-[10px] text-muted-foreground">Sin logo</span>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={id} className={cn("inline-flex h-8 cursor-pointer items-center rounded-md border px-3 text-xs hover:bg-muted", (bloqueado || subiendo) && "pointer-events-none opacity-50")}>
+          {subiendo ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+          {valor ? "Cambiar imagen" : "Subir imagen"}
+        </label>
+        <input id={id} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => subir(e.target.files?.[0] ?? null)} disabled={bloqueado || subiendo} />
+        {valor && !bloqueado && (
+          <button type="button" className="text-left text-[11px] text-muted-foreground hover:underline" onClick={() => onCambio("")}>Quitar</button>
+        )}
+      </div>
     </div>
   )
 }

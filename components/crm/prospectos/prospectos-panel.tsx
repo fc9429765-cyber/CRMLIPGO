@@ -19,6 +19,8 @@ import {
   type Etapa, type ProspectoConEtapa, type NuevoProspecto,
 } from "@/lib/crm-prospectos"
 import { GpsCapture, type Ubicacion } from "./gps-capture"
+import { ExpedienteDialog } from "./expediente-dialog"
+import { ESTADO_APROBACION_LABEL } from "@/lib/crm-prospectos-aprobacion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,6 +62,7 @@ export function ProspectosPanel() {
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState("")
   const [dialogAbierto, setDialogAbierto] = useState(false)
+  const [expediente, setExpediente] = useState<number | null>(null)
 
   const cargar = async () => {
     setCargando(true)
@@ -150,19 +153,43 @@ export function ProspectosPanel() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibles.map((p) => (
-            <TarjetaProspecto key={p.id} prospecto={p} />
+            <TarjetaProspecto key={p.id} prospecto={p} onAbrir={() => setExpediente(p.id)} />
           ))}
         </div>
+      )}
+
+      {expediente !== null && (
+        <ExpedienteDialog
+          key={expediente}
+          prospectoId={expediente}
+          empresaId={empresaId}
+          modo="vendedor"
+          onCerrar={() => setExpediente(null)}
+          onCambio={cargar}
+        />
       )}
     </div>
   )
 }
 
-function TarjetaProspecto({ prospecto: p }: { prospecto: ProspectoConEtapa }) {
+const TONO_APROBACION: Record<string, string> = {
+  pendiente_aprobacion: "border-amber-200 bg-amber-50 text-amber-800",
+  aprobado: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  rechazado: "border-red-200 bg-red-50 text-red-800",
+}
+
+function TarjetaProspecto({ prospecto: p, onAbrir }: { prospecto: ProspectoConEtapa; onAbrir: () => void }) {
   const gpsOk = esGpsConfiable(p.gps_precision_m)
+  const estado = p.estado_aprobacion
 
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card
+      className="cursor-pointer transition-shadow hover:shadow-md"
+      role="button"
+      tabIndex={0}
+      onClick={onAbrir}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onAbrir()}
+    >
       <CardContent className="space-y-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -218,6 +245,15 @@ function TarjetaProspecto({ prospecto: p }: { prospecto: ProspectoConEtapa }) {
               <span className="ml-auto text-muted-foreground">{p.proxima_fecha}</span>
             </p>
           </>
+        )}
+
+        {estado && estado !== "borrador" && (
+          <Badge variant="outline" className={`text-[10px] ${TONO_APROBACION[estado] ?? ""}`}>
+            {ESTADO_APROBACION_LABEL[estado]}
+          </Badge>
+        )}
+        {estado === "rechazado" && p.motivo_rechazo && (
+          <p className="text-[11px] text-red-700">{p.motivo_rechazo}</p>
         )}
 
         {p.valor_estimado > 0 && (

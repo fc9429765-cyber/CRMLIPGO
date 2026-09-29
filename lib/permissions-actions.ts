@@ -13,12 +13,13 @@ export async function getUserPermissions(userId?: string): Promise<UserPermissio
   try {
     const supabase = await getSupabaseAdmin()
 
-    // Si no se proporciona userId, usar el usuario actual
-    if (!userId) {
-      const currentUser = await getCurrentUser()
-      if (!currentUser) return null
-      userId = currentUser.id
-    }
+    // Siempre los del usuario de la sesion. Es una accion de servidor: con el
+    // `userId` libre, cualquiera con sesion leia los permisos de otro usuario.
+    // Todos los llamadores pasan su propio id, asi que se conserva la firma.
+    const currentUser = await getCurrentUser()
+    if (!currentUser) return null
+    if (userId && userId !== currentUser.id) return null
+    userId = currentUser.id
 
     const { data, error } = await supabase.from("permisos_usuarios").select("*").eq("usuario_id", userId).single()
 

@@ -62,6 +62,10 @@ const POR_MODULO: Record<string, string[]> = {
     "¿Qué clientes tienen lista de precios asignada?",
     "¿Cuál es la lista con más descuento?",
   ],
+  "Tablero de Cartera": [
+    "¿Qué vendedor tiene más cartera vencida?",
+    "¿Cuánto se recaudó este mes frente al anterior?",
+  ],
   "Cuentas por Cobrar": [
     "¿Cuánto nos deben en total?",
     "¿Qué facturas vencen esta semana?",

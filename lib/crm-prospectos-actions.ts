@@ -37,6 +37,30 @@ function fallo(err: unknown): ActionResult<never> {
 const PERM_PROSPECTOS = ["crm_prospectos", "crm_embudo"] as const
 
 /**
+ * Columnas que la interfaz puede escribir en un prospecto. Todo lo demas
+ * (estado de aprobacion, cliente creado, enlace de carga, firmas) lo escriben
+ * solo las acciones que lo gobiernan. Sin esta lista, crear o editar un
+ * prospecto copiaba lo que mandara el navegador: bastaba enviar
+ * `estado_aprobacion: "aprobado"` para saltarse a Cartera.
+ */
+const CAMPOS_DATOS = [
+  "razon_social", "nombre_comercial", "documento", "tipo_documento",
+  "contacto_nombre", "contacto_cargo", "contacto_celular", "contacto_telefono", "contacto_email",
+  "direccion", "barrio", "ciudad", "departamento", "latitud", "longitud", "gps_precision_m",
+] as const
+/** Seguimiento comercial: se puede tocar aun con el prospecto en revision o aprobado. */
+const CAMPOS_SEGUIMIENTO = [
+  "valor_estimado", "probabilidad_manual", "fuente", "proxima_accion", "proxima_fecha", "proxima_hora",
+  "observaciones", "motivo_perdida", "activo",
+] as const
+
+function soloCampos(obj: Record<string, unknown>, campos: readonly string[]) {
+  const out: Record<string, unknown> = {}
+  for (const k of campos) if (k in obj) out[k] = obj[k]
+  return out
+}
+
+/**
  * true si el prospecto existe en la empresa y el usuario lo puede ver.
  *
  * Un vendedor que adivina el id de un prospecto ajeno no debe poder leerlo
@@ -162,10 +186,12 @@ export async function crearProspecto(
     }
     if (!etapaId) return { success: false, error: "No hay etapas configuradas en el embudo" }
 
-    const { interes, ...cabecera } = entrada
+    const { interes } = entrada
+    const cabecera = soloCampos(entrada as unknown as Record<string, unknown>, [...CAMPOS_DATOS, ...CAMPOS_SEGUIMIENTO])
     // Sin vendedor explicito, el prospecto es de quien lo crea. Si no, un
-    // vendedor crearia prospectos que despues no podria ver.
-    const vendedorId = cabecera.vendedor_id ?? ctx.vendedorId
+    // vendedor crearia prospectos que despues no podria ver. Un vendedor con
+    // alcance "propios" no puede crearlo a nombre de otro.
+    const vendedorId = ctx.alcance === "propios" ? ctx.vendedorId : entrada.vendedor_id ?? ctx.vendedorId
 
     // El codigo lo asigna un trigger (PROS-2026-0001), por eso no se manda.
     const { data, error } = await supabase
@@ -232,9 +258,19 @@ export async function actualizarProspecto(
       return { success: false, error: "El prospecto no existe" }
     }
 
-    // La empresa y el codigo no se tocan desde la interfaz: mover un prospecto
-    // de empresa o renumerarlo no es una edicion, es otra operacion.
-    const { idempresa, codigo, id: _, creado_en, creado_por, ...limpio } = cambios as any
+    // Solo columnas de datos y seguimiento. Con el prospecto en revision o ya
+    // aprobado, los datos que Cartera valido (NIT, razon social, direccion…)
+    // quedan fijos: cambiarlos despues cambiaria lo que se aprobo.
+    const { data: actual } = await supabase.from("crm_prospectos").select("estado_aprobacion").eq("id", id).maybeSingle()
+    const editableDatos = !actual?.estado_aprobacion || ["borrador", "rechazado"].includes(actual.estado_aprobacion as string)
+    const limpio: Record<string, unknown> = soloCampos(
+      cambios as unknown as Record<string, unknown>,
+      editableDatos ? [...CAMPOS_DATOS, ...CAMPOS_SEGUIMIENTO] : CAMPOS_SEGUIMIENTO,
+    )
+    if (ctx.alcance === "todos" && "vendedor_id" in (cambios as object)) limpio.vendedor_id = (cambios as { vendedor_id?: number | null }).vendedor_id
+    if (!Object.keys(limpio).length) {
+      return { success: false, error: editableDatos ? "Nada que actualizar" : "El prospecto está en revisión o aprobado: sus datos ya no se editan" }
+    }
 
     const { data, error } = await supabase
       .from("crm_prospectos")

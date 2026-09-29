@@ -79,6 +79,7 @@ export const MODULE_PERMISSION_MAP: Record<string, keyof UserPermissions> = {
 
   // Prospectos
   "Registrar Prospecto": "crm_prospectos",
+  "Aprobar Prospectos": "crm_prospectos_aprobar",
   "Embudo de Ventas": "crm_embudo",
   "Actividades": "crm_actividades",
   // El calendario y la agenda comparten permiso: son la misma informacion,
@@ -106,8 +107,13 @@ export const MODULE_PERMISSION_MAP: Record<string, keyof UserPermissions> = {
   "Listas de Precios": "crm_listas_precios",
 
   // Cartera
+  // Tablero consolidado (DSH-02): Cartera y Gerencia. El vendedor lo ve con su
+  // cartera solamente (el alcance se aplica en el servidor).
+  "Tablero de Cartera": "crm_cartera",
   "Cuentas por Cobrar": "crm_cartera",
   "Registrar Pago": "crm_pagos",
+  // Bandeja de Cartera: aprobar mueve saldos, asi que tiene su propio permiso.
+  "Aprobar Recaudos": "crm_recaudos_aprobar",
   "Antigüedad de Cartera": "crm_cartera",
   "Comisiones": "crm_comisiones",
 
@@ -137,6 +143,7 @@ export const MODULE_PERMISOS_ALTERNOS: Record<string, (keyof UserPermissions)[]>
   "Autorizar Pedidos": ["crm_autorizar_gerencia"],
   "Registrar Pago": ["crm_recaudos_registrar", "crm_recaudos_aprobar"],
   "Cuentas por Cobrar": ["crm_recaudos_aprobar"],
+  "Tablero de Cartera": ["crm_recaudos_aprobar", "crm_autorizar_contabilidad", "crm_autorizar_gerencia"],
 }
 
 /** Todas las columnas que habilitan un modulo (principal + alternativas). */

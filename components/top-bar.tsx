@@ -16,6 +16,7 @@ import {
   Building2, LogOut, User as UserIcon, CalendarClock, UserPlus,
   FileWarning, Wallet, Stamp, Loader2,
   ClipboardCheck,
+  Banknote,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { ColombiaClock } from "@/components/colombia-clock"
@@ -50,6 +51,7 @@ const DOMINIOS: {
   { endpoint: "cotizaciones",   permiso: "crm_cotizaciones",           titulo: "Cotizaciones por vencer", icono: FileWarning,  color: "text-[var(--chart-3)]", moduloDestino: "Cotizaciones" },
   { endpoint: "cartera",        permiso: "crm_cartera",                titulo: "Cartera vencida",       icono: Wallet,        color: "text-destructive",      moduloDestino: "Cuentas por Cobrar" },
   { endpoint: "pedidos",        permiso: "crm_pedidos",                titulo: "Mis pedidos",           icono: ClipboardCheck, color: "text-[var(--chart-2)]", moduloDestino: "Pedidos CRM" },
+  { endpoint: "recaudos",       permiso: ["crm_recaudos_aprobar", "crm_recaudos_registrar", "crm_pagos"], titulo: "Recaudos", icono: Banknote, color: "text-[var(--chart-3)]", moduloDestino: "Registrar Pago" },
   { endpoint: "autorizaciones", permiso: ["crm_autorizar_contabilidad", "crm_autorizar_gerencia"], titulo: "Esperando tu firma",    icono: Stamp,         color: "text-[var(--chart-2)]", moduloDestino: "Autorizar Pedidos" },
 ]
 
