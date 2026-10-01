@@ -217,7 +217,10 @@ export function TablaDatos<T>({
                       onFila && "cursor-pointer",
                     )}
                   >
-                    {fila.getVisibleCells().map((c) => (
+                    {/* getAllCells y no getVisibleCells: en la v9 este último
+                        solo existe si se declara columnVisibilityFeature, y
+                        con la tabla vacía el error no aparece nunca. */}
+                    {fila.getAllCells().map((c) => (
                       <td key={c.id} className="border-b px-3 py-1.5 align-middle text-xs">
                         {flexRender(c.column.columnDef.cell, c.getContext())}
                       </td>

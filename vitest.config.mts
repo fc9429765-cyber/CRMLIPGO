@@ -7,7 +7,7 @@ export default defineConfig({
   // Resuelve el alias "@/..." desde tsconfig.json, igual que Next.
   resolve: { tsconfigPaths: true },
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     environment: "node",
   },
 })
