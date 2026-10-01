@@ -22,8 +22,10 @@ import { toast } from "@/hooks/use-toast"
 import { FormularioVenta, type EstadoEnvio } from "./formulario-venta"
 
 export function CotizacionForm({
-  empresaId, usuario, onGuardado, tipoVenta = "cotizacion",
+  empresaId, usuario, onGuardado, tipoVenta = "cotizacion", inicial,
 }: {
+  /** Cliente o prospecto ya elegido al llegar desde otro módulo. */
+  inicial?: { clienteId?: number | null; prospectoId?: number | null }
   empresaId: number
   usuario: string
   /** Recibe el id de lo creado, para que quien llame pueda seguir el flujo. */
@@ -73,6 +75,7 @@ export function CotizacionForm({
       <FormularioVenta
         empresaId={empresaId}
         modo={tipoVenta}
+        inicial={inicial}
         pie={(estado) => (
           <Button
             className="h-8"

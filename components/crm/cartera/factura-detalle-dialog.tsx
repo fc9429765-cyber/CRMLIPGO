@@ -18,6 +18,7 @@ import { useMaestrosRecaudo } from "@/components/crm/recaudos/comun"
 import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
 import { Dato, ResumenDatos } from "@/components/crm/ui/modulo"
 import { cn } from "@/lib/utils"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 const TIPO: Record<string, string> = {
   recaudo: "Recaudo", descuento: "Descuento", nota_credito: "Nota crédito", ajuste: "Ajuste", legacy: "Abono",
@@ -64,6 +65,13 @@ export function FacturaDetalleDialog({
         titulo={`Factura ${cuenta.numero_factura ?? "sin número"}`}
         subtitulo={`${cuenta.cliente_nombre ?? "—"}${cuenta.pedido_numero ? ` · pedido ${cuenta.pedido_numero}` : ""}`}
       >
+        <AccesosRapidos
+          accesos={[
+            { cuenta360: cuenta.cliente_id, etiqueta: "Cuenta del cliente" },
+            { intencion: { accion: "registrar_pago", clienteId: cuenta.cliente_id } },
+            !!cuenta.pedido_id && { intencion: { accion: "ver_pedido", pedidoId: cuenta.pedido_id }, etiqueta: "Ver el pedido" },
+          ]}
+        />
         <ResumenDatos className="md:grid-cols-4 lg:grid-cols-4">
           <Dato etiqueta="Contabilización" num>{cuenta.fecha_factura}</Dato>
           <Dato etiqueta="Vencimiento" num>{cuenta.fecha_vencimiento}</Dato>

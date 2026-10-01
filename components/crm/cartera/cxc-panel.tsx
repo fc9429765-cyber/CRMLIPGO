@@ -29,6 +29,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { TablaDatos } from "@/components/crm/ui/tabla-datos"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 export function CxcPanel() {
   const { profile, selectedEmpresaId } = useAuth()
@@ -58,9 +60,14 @@ export function CxcPanel() {
     ]).then(([a, b, c]) => setCortes([a, b, c]))
   }, [empresaId])
 
+  // Llegando de la cuenta de un cliente: solo su cartera.
+  const [clienteFiltro, setClienteFiltro] = useState<{ id: number; nombre?: string } | null>(null)
+  useIntencion(["ver_cartera_cliente"], (i) => setClienteFiltro({ id: i.clienteId, nombre: i.nombre }))
+
   const cargar = async () => {
     const res = await getCuentasPorCobrar(empresaId, {
       soloVencidas: filtro === "vencidas",
+      clienteId: clienteFiltro?.id,
     })
     if (res.success) setCuentas(res.data ?? [])
     else toast({ title: "No se pudo cargar la cartera", description: res.error, variant: "destructive" })
@@ -70,7 +77,7 @@ export function CxcPanel() {
   useEffect(() => {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaId, filtro])
+  }, [empresaId, filtro, clienteFiltro?.id])
 
   // El filtro de estado se aplica ANTES de entregar los datos a la tabla: la
   // consulta ya trae solo lo pedido, así que aquí `visibles` es exactamente lo
@@ -224,6 +231,25 @@ export function CxcPanel() {
         )
       },
     },
+    {
+      // Accesos a lo relacionado: la cuenta del cliente, cobrarle, el pedido.
+      id: "ir",
+      header: "",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const c = row.original as CuentaPorCobrar
+        return (
+          <AccesosRapidos
+            variante="menu"
+            accesos={[
+              { cuenta360: c.cliente_id },
+              { intencion: { accion: "registrar_pago", clienteId: c.cliente_id } },
+              !!c.pedido_id && { intencion: { accion: "ver_pedido", pedidoId: c.pedido_id } },
+            ]}
+          />
+        )
+      },
+    },
     ...(gestiona ? ([
     {
       // Columna de acciones: no ordena ni entra en la búsqueda global, porque
@@ -295,6 +321,11 @@ export function CxcPanel() {
             <SelectItem value="vencidas">Solo vencidas</SelectItem>
           </SelectContent>
         </Select>
+        {clienteFiltro && (
+          <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setClienteFiltro(null)}>
+            {clienteFiltro.nombre ?? cuentas[0]?.cliente_nombre ?? "Un cliente"} · quitar filtro ✕
+          </Button>
+        )}
       </div>
 
       {/* La tabla no desaparece mientras carga: la cabecera se queda en su

@@ -47,9 +47,11 @@ const soloDigitos = (t: string) => t.replace(/\D/g, "")
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase()
 
 export function RecaudoForm({
-  empresaId, maestros, clientes, corrigiendo, onHecho, onCancelar,
+  empresaId, maestros, clientes, corrigiendo, onHecho, onCancelar, clienteInicial,
 }: {
   empresaId: number
+  /** Cliente ya elegido al llegar desde su cuenta, una factura o un pedido. */
+  clienteInicial?: number | null
   maestros: MaestrosRecaudo
   /** Clientes visibles para el usuario. No se usa al corregir. */
   clientes: ClienteCrm[]
@@ -59,7 +61,7 @@ export function RecaudoForm({
   onCancelar?: () => void
 }) {
   const r0 = corrigiendo ?? null
-  const [clienteId, setClienteId] = useState<number | null>(r0?.cliente_id ?? null)
+  const [clienteId, setClienteId] = useState<number | null>(r0?.cliente_id ?? clienteInicial ?? null)
   const [ownerId, setOwnerId] = useState<number | null>(r0?.owner_id ?? null)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [lectura, setLectura] = useState<EstadoLectura>(

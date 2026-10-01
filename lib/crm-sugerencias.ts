@@ -62,6 +62,10 @@ const POR_MODULO: Record<string, string[]> = {
     "¿Qué clientes tienen lista de precios asignada?",
     "¿Cuál es la lista con más descuento?",
   ],
+  "Aprobaciones": [
+    "¿Qué pedidos llevan más tiempo esperando aprobación?",
+    "¿Cuántos recaudos hay por aprobar?",
+  ],
   "Tablero de Cartera": [
     "¿Qué vendedor tiene más cartera vencida?",
     "¿Cuánto se recaudó este mes frente al anterior?",

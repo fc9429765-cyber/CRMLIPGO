@@ -15,6 +15,7 @@ import { TopBar } from "@/components/top-bar"
 import { MainContent } from "@/components/main-content"
 import { SplashScreen } from "@/components/splash-screen"
 import { LipbotDock } from "@/components/lipbot-dock"
+import { HostDialogosGlobales } from "@/components/crm/host-dialogos-globales"
 import { groups, type GroupKey } from "@/lib/dashboard-data"
 import { useAuth } from "@/components/auth-provider"
 
@@ -112,7 +113,10 @@ export default function CrmPage() {
           <MainContent
             selectedGroup={selectedGroup}
             selectedModule={selectedModule}
-            onSelectModule={setSelectedModule}
+            // navigateToModule y no setSelectedModule: fija tambien el grupo.
+            // Con solo el modulo, los botones de Inicio no llevaban a ningun
+            // lado (sin grupo, la pantalla sigue en Inicio).
+            onSelectModule={navigateToModule}
             onSelectGroup={(group) => {
               setSelectedGroup(group)
               setSelectedModule(null)
@@ -120,6 +124,10 @@ export default function CrmPage() {
           />
         </main>
       </div>
+
+      {/* Dialogos que cualquier modulo puede abrir encima de si mismo
+          (la Cuenta 360 de un cliente) sin cambiar de modulo. */}
+      <HostDialogosGlobales />
 
       {/* Asistente flotante. No se muestra en el Inicio ni dentro del propio
           asistente a pantalla completa, para no tener dos superficies del

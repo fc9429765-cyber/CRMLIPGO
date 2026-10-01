@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 type Vista = "registrar" | "mios"
 type FiltroEstado = "todos" | EstadoRecaudo
@@ -47,6 +48,15 @@ export function RecaudosPanel() {
   const [permisos, setPermisos] = useState<PermisosRecaudo | null>(null)
   const [clientes, setClientes] = useState<ClienteCrm[]>([])
   const [vista, setVista] = useState<Vista>("registrar")
+  // Llegando de la cuenta de un cliente, una factura o un pedido: el
+  // formulario se abre con ese cliente elegido.
+  const [clienteInicial, setClienteInicial] = useState<number | null>(null)
+  useIntencion(["registrar_pago"], (i) => {
+    setClienteInicial(i.clienteId)
+    setHecho(null)
+    setVista("registrar")
+    setFormKey((k) => k + 1)
+  })
   const [recaudos, setRecaudos] = useState<RecaudoConDetalle[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState<FiltroEstado>("todos")
@@ -136,7 +146,7 @@ export function RecaudosPanel() {
                 <AlertasRecaudo alertas={hecho.alertas} className="text-left" />
                 <div className="flex flex-wrap justify-center gap-2">
                   {hecho.id && <BotonPdfRecaudo recaudoId={hecho.id} empresaId={empresaId} estado="pendiente_aprobacion" variante="default" />}
-                  <Button variant="outline" size="sm" className="h-8" onClick={() => { setHecho(null); setFormKey((k) => k + 1) }}>
+                  <Button variant="outline" size="sm" className="h-8" onClick={() => { setHecho(null); setClienteInicial(null); setFormKey((k) => k + 1) }}>
                     <Plus className="mr-1.5 h-3.5 w-3.5" /> Registrar otro
                   </Button>
                 </div>
@@ -146,6 +156,7 @@ export function RecaudosPanel() {
             ) : (
               <RecaudoForm
                 key={formKey}
+                clienteInicial={clienteInicial}
                 empresaId={empresaId}
                 maestros={maestros}
                 clientes={clientes}

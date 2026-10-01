@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils"
 // no al revés: así no hay importaciones circulares entre los tres archivos.
 import { PedidoDetalleDialog, ChipsIntegracion, TONO_ESTADO, hayErrorIntegracion } from "./pedido-detalle-dialog"
 import { SelectorBuscable } from "./pedido-editar-dialog"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 const POR_PAGINA = 50
 
@@ -102,6 +103,14 @@ export function PedidosPanel() {
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [detalleId, setDetalleId] = useState<number | null>(null)
+  // Llegando de otro módulo: abrir un pedido concreto o filtrar por cliente.
+  useIntencion(["ver_pedido", "ver_pedidos_cliente"], (i) => {
+    if (i.accion === "ver_pedido") setDetalleId(i.pedidoId)
+    else {
+      setVista("todos")
+      setFiltros({ ...FILTROS_VACIOS, clienteId: i.clienteId })
+    }
+  })
 
   // Catálogos de los selectores
   const [clientes, setClientes] = useState<ClienteCrm[]>([])

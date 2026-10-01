@@ -97,6 +97,9 @@ export const PARAM = {
 
   // SAP (script 207)
   SAP_PREFIJO_CLIENTE: "integracion.sap.prefijo_cliente",
+
+  // Torre de aprobaciones (script 208)
+  APROBACIONES_HORAS_ALERTA: "aprobaciones.horas_alerta",
 } as const
 
 export type ParamKey = (typeof PARAM)[keyof typeof PARAM]
@@ -160,6 +163,7 @@ export const PARAM_FALLBACK: Record<ParamKey, string> = {
   "prospecto.exigir_documentos": "true",
   "prospecto.enlace_dias": "7",
   "integracion.sap.prefijo_cliente": "C",
+  "aprobaciones.horas_alerta": "24",
 }
 
 /** Como se llama cada grupo en la pantalla de Parametrizacion. */

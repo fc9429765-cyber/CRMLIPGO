@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 type Decision = null | "rechazar" | "anular"
 
@@ -191,6 +192,12 @@ export function RecaudoDetalleDialog({
         <div className="flex h-32 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
+          <AccesosRapidos
+            accesos={[
+              { cuenta360: r.cliente_id, etiqueta: "Cuenta del cliente" },
+              { intencion: { accion: "ver_cartera_cliente", clienteId: r.cliente_id, nombre: r.cliente_nombre ?? undefined }, etiqueta: "Facturas del cliente" },
+            ]}
+          />
           <div className="flex flex-wrap items-center gap-2">
             <EstadoRecaudoBadge estado={r.estado} />
             <EstadoSapBadge estado={r.sap_estado} />

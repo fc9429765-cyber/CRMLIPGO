@@ -1,6 +1,6 @@
 # LIPGO CRM — Qué hace hoy el sistema
 
-**Estado a 30 de septiembre de 2026** · rama `main` · scripts de base de datos 181 a 207 ejecutados · 147 pruebas automáticas
+**Estado a 30 de septiembre de 2026** · rama `main` · scripts de base de datos 181 a 207 ejecutados (208 por correr) · 147 pruebas automáticas
 
 Este documento describe **lo que está construido**, no lo que se planeó. Donde algo está a medias, sin probar o esperando un dato que solo ustedes pueden cargar, se dice explícitamente.
 
@@ -41,7 +41,7 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 
 ---
 
-## 2. Los 32 módulos
+## 2. Los 33 módulos
 
 ### Inicio
 | Módulo | Qué hace |
@@ -76,6 +76,7 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 ### Cartera
 | Módulo | Qué hace |
 |---|---|
+| **Aprobaciones** | **Torre de control** de Cartera y Gerencia: en una sola lista, del más antiguo al más reciente, los pedidos esperando su firma, los recaudos por aprobar y los clientes nuevos (prospectos) con sus documentos por revisar. Lo que lleva más de 24 h (parametrizable) se marca en rojo. Cada pendiente se abre con el mismo diálogo de su módulo. Se actualiza sola cada minuto. |
 | **Tablero de Cartera** | Cartera total, por vencer, vencida por rango, mora, recaudo por mes y saldo a favor. Filtros por vendedor, empresa y rango; cortes por cliente, vendedor y empresa. |
 | **Cuentas por Cobrar** | Facturas abiertas con fecha de contabilización, vencimiento, días, abonado, saldo vencido y rango. Al pulsar una factura se ven sus abonos y de qué recaudo salió cada uno. El vendedor la ve **solo en lectura**. |
 | **Registrar Pago** | El vendedor reporta un pago desde el celular: foto del comprobante, datos prellenados por IA, reparto propuesto entre facturas. Ver sección 3. |
@@ -141,6 +142,22 @@ Desde cualquier cliente se abre su **Cuenta 360**: cupo, saldo, disponible o sob
 
 El **estado de cuenta** sale en PDF con el membrete del owner (logo, NIT, dirección, texto legal, editables en Maestros → Owners). Se descarga o se **envía por WhatsApp** con un enlace que caduca a los días configurados. Si el cliente debe a las dos empresas, se genera uno por empresa.
 
+### Accesos directos entre módulos
+
+Desde donde se esté, lo siguiente que se hace con un cliente o un prospecto está a un clic y **lleva los datos**: no hay que buscar al cliente otra vez.
+
+| Desde | Lleva a |
+|---|---|
+| Cuenta 360 de un cliente | Nueva venta, cotizar, registrar pago, ver sus pedidos, ver su cartera, registrar actividad — con el cliente ya elegido |
+| Gestión de Clientes (menú "Ir a…" de cada fila) | Lo mismo |
+| Prospecto (expediente, embudo, agenda) | Cotizarle, registrar actividad; ya aprobado: su cuenta y la primera venta |
+| Cotización | **Aceptada: convertir en pedido** en un paso, y abre el pedido creado; ver el pedido; cuenta del cliente |
+| Pedido | Cuenta del cliente, registrar pago, otra venta al cliente, sus otros pedidos |
+| Factura, recaudo, aprobación | Cuenta del cliente, registrar pago, el pedido de origen, sus facturas |
+| Mi Agenda | Desde la cita: venderle, cobrarle, cotizarle, registrar la actividad |
+
+La **Cuenta 360 se abre encima** del módulo donde se esté (un pedido, una aprobación) y al cerrarla se vuelve al mismo punto. Solo aparecen los accesos a módulos que el usuario puede abrir.
+
 ---
 
 ## 4. Nada está escrito en el código
@@ -197,7 +214,7 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 ## 7. Lo que hay debajo
 
 - **38 tablas** con prefijo `crm_`. A las tablas compartidas con LIPgo solo se les agregaron columnas.
-- **Scripts de base de datos** en `scripts/`, numerados **181 a 207**, todos ejecutados.
+- **Scripts de base de datos** en `scripts/`, numerados **181 a 208**; el 208 (horas de alerta de la torre de aprobaciones) está por correr.
 - Las operaciones que tienen que ocurrir enteras o no ocurrir son **funciones de la base de datos** con bloqueo de filas: pasar un pedido a LIPgo con su cuenta por cobrar, aprobar y anular un recaudo, convertir un prospecto en cliente.
 - **147 pruebas automáticas** (`pnpm test`): reparto de pagos, sobrecupo, estados de pedidos, INDUPAN vs. Molinos, SAP apagado y simulado, traducción a SAP, expediente del prospecto, rangos de cartera.
 - **Multiempresa:** todas las tablas llevan la empresa; los consecutivos y los parámetros son por empresa.

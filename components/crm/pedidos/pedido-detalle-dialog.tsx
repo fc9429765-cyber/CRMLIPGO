@@ -49,6 +49,7 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { PedidoEditarDialog } from "./pedido-editar-dialog"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 // ------------------------------------------------------ piezas compartidas
 // Viven aquí y no en el panel para que el panel las importe sin crear un
@@ -424,6 +425,17 @@ export function PedidoDetalleDialog({
           <Loader2 className="mx-auto my-10 h-6 w-6 animate-spin text-muted-foreground" aria-label="Cargando pedido" />
         ) : (
           <>
+            {/* Lo relacionado con este pedido, a un clic y con los datos puestos. */}
+            <AccesosRapidos
+              accesos={[
+                { cuenta360: p.cliente_id, etiqueta: "Cuenta del cliente" },
+                p.forma_pago === "credito" && ["aprobado", "programado_lipgo"].includes(p.estado) &&
+                  { intencion: { accion: "registrar_pago", clienteId: p.cliente_id } },
+                { intencion: { accion: "nueva_venta", clienteId: p.cliente_id }, etiqueta: "Otra venta al cliente" },
+                !!p.cotizacion_id && { intencion: { accion: "ver_cotizaciones_cliente", clienteId: p.cliente_id }, etiqueta: "Cotizaciones del cliente" },
+                { intencion: { accion: "ver_pedidos_cliente", clienteId: p.cliente_id }, etiqueta: "Pedidos del cliente" },
+              ]}
+            />
             <ResumenDatos className="md:grid-cols-4 lg:grid-cols-4">
               <Dato etiqueta="Cliente">{p.cliente_nombre}</Dato>
               <Dato etiqueta="Sucursal">{p.sucursal_nombre ?? <span className="text-amber-700">Sin sucursal</span>}</Dato>

@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 interface LineaInteres {
   id: string
@@ -63,6 +64,7 @@ export function ProspectosPanel() {
   const [busqueda, setBusqueda] = useState("")
   const [dialogAbierto, setDialogAbierto] = useState(false)
   const [expediente, setExpediente] = useState<number | null>(null)
+  useIntencion(["ver_prospecto"], (i) => setExpediente(i.prospectoId))
 
   const cargar = async () => {
     setCargando(true)

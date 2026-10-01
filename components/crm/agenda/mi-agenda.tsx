@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import type { LucideIcon } from "lucide-react"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 const ICONO_TIPO: Record<string, LucideIcon> = {
   visita: MapPin,
@@ -301,6 +302,20 @@ function TarjetaCita({
         </div>
 
         <div className="flex gap-1.5">
+          <AccesosRapidos
+            variante="menu"
+            className="h-8"
+            accesos={c.cliente_id ? [
+              { cuenta360: c.cliente_id },
+              { intencion: { accion: "nueva_venta", clienteId: c.cliente_id } },
+              { intencion: { accion: "registrar_pago", clienteId: c.cliente_id } },
+              { intencion: { accion: "registrar_actividad", clienteId: c.cliente_id } },
+            ] : c.prospecto_id ? [
+              { intencion: { accion: "ver_prospecto", prospectoId: c.prospecto_id } },
+              { intencion: { accion: "nueva_cotizacion", prospectoId: c.prospecto_id }, etiqueta: "Cotizarle" },
+              { intencion: { accion: "registrar_actividad", prospectoId: c.prospecto_id } },
+            ] : []}
+          />
           <Button size="sm" onClick={onCumplir}>
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
             Cumplida

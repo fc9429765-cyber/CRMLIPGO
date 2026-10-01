@@ -116,8 +116,11 @@ export function FormularioVenta({
   empresaId,
   modo,
   pie,
+  inicial,
 }: {
   empresaId: number
+  /** Destinatario ya elegido al llegar desde otro módulo (lib/crm-navegacion). */
+  inicial?: { clienteId?: number | null; prospectoId?: number | null }
   /** "cotizacion" admite prospectos y sucursal opcional; "directa" genera pedido. */
   modo: TipoVenta
   /** Botones de acción. Se pintan en la barra fija de abajo, al alcance del pulgar. */
@@ -138,9 +141,11 @@ export function FormularioVenta({
   })
 
   // ------------------------------------------------------------ Destinatario
-  const [tipoDestino, setTipoDestino] = useState<"cliente" | "prospecto">("cliente")
-  const [clienteId, setClienteId] = useState<number | null>(null)
-  const [prospectoId, setProspectoId] = useState<number | null>(null)
+  const [tipoDestino, setTipoDestino] = useState<"cliente" | "prospecto">(
+    inicial?.prospectoId && modo === "cotizacion" ? "prospecto" : "cliente",
+  )
+  const [clienteId, setClienteId] = useState<number | null>(inicial?.clienteId ?? null)
+  const [prospectoId, setProspectoId] = useState<number | null>(modo === "cotizacion" ? inicial?.prospectoId ?? null : null)
   const [buscadorAbierto, setBuscadorAbierto] = useState(false)
 
   const [cuenta, setCuenta] = useState<Cuenta360 | null>(null)

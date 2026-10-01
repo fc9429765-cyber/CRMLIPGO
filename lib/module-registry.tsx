@@ -109,6 +109,12 @@ export const MODULE_REGISTRY: Record<string, ModuleEntry> = {
   },
 
   // --------------------------------------------------------------- Cartera
+  // Torre de control: pedidos, recaudos y clientes nuevos por aprobar.
+  "Aprobaciones": {
+    component: dynamic(() => import("@/components/crm/cartera/aprobaciones-panel"), { loading: Cargando }),
+    permission: "crm_recaudos_aprobar",
+    fullWidth: true,
+  },
   "Tablero de Cartera": {
     component: dynamic(() => import("@/components/crm/cartera/tablero-cartera-panel"), { loading: Cargando }),
     permission: "crm_cartera",

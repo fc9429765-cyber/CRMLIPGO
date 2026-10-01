@@ -20,6 +20,7 @@ import { EstadoCuentaAcciones } from "@/components/crm/cartera/estado-cuenta-acc
 import { BotonPdfRecaudo, EstadoRecaudoBadge } from "@/components/crm/recaudos/comun"
 import { RecaudoDetalleDialog } from "@/components/crm/recaudos/recaudo-detalle-dialog"
 import { DocumentosCliente } from "@/components/crm/clientes/documentos-cliente"
+import { AccesosRapidos, accesosCliente } from "@/components/crm/ui/accesos-rapidos"
 import { diasEntre, hoyISO } from "@/lib/crm-fechas"
 import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
 import {
@@ -145,6 +146,10 @@ function Contenido({
 
   return (
     <>
+      {/* Lo siguiente que uno hace al mirar la cuenta de un cliente: venderle,
+          cobrarle, ver sus pedidos. Lleva al módulo con el cliente ya elegido. */}
+      <AccesosRapidos accesos={accesosCliente(cliente.id, { sinCuenta: true })} />
+
       {cliente.bloqueado_cartera && (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-xs font-semibold text-red-800">
           <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />

@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { getClientesCrm } from "@/lib/crm-catalogos-actions"
+import type { ClienteCrm } from "@/lib/crm-catalogos"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 const ICONO: Record<TipoActividad, typeof Phone> = {
   llamada: Phone,
@@ -49,14 +52,23 @@ export function ActividadesPanel() {
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState("")
   const [dialogAbierto, setDialogAbierto] = useState(false)
+  const [clientes, setClientes] = useState<ClienteCrm[]>([])
+  // Llegando desde un cliente o un prospecto: el formulario ya lo trae elegido.
+  const [inicial, setInicial] = useState<{ clienteId?: number; prospectoId?: number } | undefined>(undefined)
+  useIntencion(["registrar_actividad"], (i) => {
+    setInicial({ clienteId: i.clienteId, prospectoId: i.prospectoId })
+    setDialogAbierto(true)
+  })
 
   const cargar = async () => {
-    const [aRes, pRes] = await Promise.all([
+    const [aRes, pRes, cRes] = await Promise.all([
       getActividades(empresaId, { limite: 200 }),
       getProspectos(empresaId),
+      getClientesCrm(empresaId),
     ])
     if (aRes.success) setActividades(aRes.data ?? [])
     if (pRes.success) setProspectos(pRes.data ?? [])
+    if (cRes.success) setClientes(cRes.data ?? [])
     setCargando(false)
   }
 
@@ -70,15 +82,16 @@ export function ActividadesPanel() {
     () => new Map(prospectos.map((p) => [p.id, p.razon_social])),
     [prospectos],
   )
+  const clientePorId = useMemo(() => new Map(clientes.map((c) => [c.id, c.nombre])), [clientes])
 
   const visibles = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
     if (!t) return actividades
     return actividades.filter((a) =>
-      [a.asunto, a.detalle, a.usuario, a.prospecto_id ? nombrePorId.get(a.prospecto_id) : ""]
+      [a.asunto, a.detalle, a.usuario, a.prospecto_id ? nombrePorId.get(a.prospecto_id) : "", a.cliente_id ? clientePorId.get(a.cliente_id) : ""]
         .some((c) => c?.toLowerCase().includes(t)),
     )
-  }, [actividades, busqueda, nombrePorId])
+  }, [actividades, busqueda, nombrePorId, clientePorId])
 
   return (
     <div className="space-y-5">
@@ -89,11 +102,11 @@ export function ActividadesPanel() {
           </span>
           <div>
             <h1 className="text-lg font-semibold leading-tight">Actividades</h1>
-            <p className="text-sm text-muted-foreground">Todo lo que se ha hecho con cada prospecto, en orden</p>
+            <p className="text-sm text-muted-foreground">Todo lo que se ha hecho con cada prospecto y cliente, en orden</p>
           </div>
         </div>
 
-        <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
+        <Dialog open={dialogAbierto} onOpenChange={(v) => { setDialogAbierto(v); if (!v) setInicial(undefined) }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-8">
               <Plus className="mr-1.5 h-4 w-4" />
@@ -101,11 +114,15 @@ export function ActividadesPanel() {
             </Button>
           </DialogTrigger>
           <FormularioActividad
+            key={`${inicial?.clienteId ?? ""}-${inicial?.prospectoId ?? ""}`}
             prospectos={prospectos}
+            clientes={clientes}
+            inicial={inicial}
             empresaId={empresaId}
             usuario={profile?.usuario ?? "desconocido"}
             onGuardado={() => {
               setDialogAbierto(false)
+              setInicial(undefined)
               cargar()
             }}
           />
@@ -169,6 +186,11 @@ export function ActividadesPanel() {
                         {nombrePorId.get(a.prospecto_id)}
                       </p>
                     )}
+                    {a.cliente_id && clientePorId.has(a.cliente_id) && (
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Cliente: {clientePorId.get(a.cliente_id)}
+                      </p>
+                    )}
 
                     {a.detalle && <p className="text-xs text-muted-foreground">{a.detalle}</p>}
 
@@ -192,17 +214,22 @@ export function ActividadesPanel() {
 }
 
 function FormularioActividad({
-  prospectos, empresaId, usuario, onGuardado,
+  prospectos, clientes, inicial, empresaId, usuario, onGuardado,
 }: {
   prospectos: ProspectoConEtapa[]
+  clientes: ClienteCrm[]
+  inicial?: { clienteId?: number; prospectoId?: number }
   empresaId: number
   usuario: string
   onGuardado: () => void
 }) {
   const [guardando, setGuardando] = useState(false)
   const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null)
+  // Con un prospecto (embudo) o con un cliente (seguimiento, visita de cobro).
+  const [para, setPara] = useState<"prospecto" | "cliente">(inicial?.clienteId ? "cliente" : "prospecto")
   const [form, setForm] = useState({
-    prospecto_id: "",
+    prospecto_id: inicial?.prospectoId ? String(inicial.prospectoId) : "",
+    cliente_id: inicial?.clienteId ? String(inicial.clienteId) : "",
     tipo: "visita" as TipoActividad,
     asunto: "",
     detalle: "",
@@ -213,8 +240,8 @@ function FormularioActividad({
   const esVisita = form.tipo === "visita"
 
   const guardar = async () => {
-    if (!form.prospecto_id) {
-      toast({ title: "Elige el prospecto", variant: "destructive" })
+    if (para === "prospecto" ? !form.prospecto_id : !form.cliente_id) {
+      toast({ title: para === "prospecto" ? "Elige el prospecto" : "Elige el cliente", variant: "destructive" })
       return
     }
     if (!form.asunto.trim()) {
@@ -225,8 +252,8 @@ function FormularioActividad({
     setGuardando(true)
     const res = await registrarActividad(
       {
-        prospecto_id: Number(form.prospecto_id),
-        cliente_id: null,
+        prospecto_id: para === "prospecto" ? Number(form.prospecto_id) : null,
+        cliente_id: para === "cliente" ? Number(form.cliente_id) : null,
         idempresa: empresaId,
         tipo: form.tipo,
         asunto: form.asunto.trim(),
@@ -262,20 +289,35 @@ function FormularioActividad({
 
       <div className="space-y-4 py-2">
         <div className="space-y-1.5">
-          <Label className="text-sm">Prospecto *</Label>
-          <Select
-            value={form.prospecto_id}
-            onValueChange={(v) => setForm((f) => ({ ...f, prospecto_id: v }))}
-          >
-            <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-            <SelectContent>
-              {prospectos.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>
-                  {p.razon_social}
-                </SelectItem>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm">{para === "prospecto" ? "Prospecto" : "Cliente"} *</Label>
+            <div className="flex gap-1">
+              {(["prospecto", "cliente"] as const).map((t) => (
+                <Button key={t} type="button" size="sm" variant={para === t ? "default" : "outline"} className="h-6 px-2 text-[11px]" onClick={() => setPara(t)}>
+                  {t === "prospecto" ? "Prospecto" : "Cliente"}
+                </Button>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
+          {para === "prospecto" ? (
+            <Select value={form.prospecto_id} onValueChange={(v) => setForm((f) => ({ ...f, prospecto_id: v }))}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+              <SelectContent>
+                {prospectos.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.razon_social}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Select value={form.cliente_id} onValueChange={(v) => setForm((f) => ({ ...f, cliente_id: v }))}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+              <SelectContent>
+                {clientes.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

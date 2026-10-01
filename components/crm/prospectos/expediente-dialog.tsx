@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 const pesos = (n: number | null | undefined) => "$ " + Math.round(Number(n) || 0).toLocaleString("es-CO")
 const fechaHora = (iso: string | null | undefined) =>
@@ -90,6 +91,22 @@ export function ExpedienteDialog({
         <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
+          {/* Antes de ser cliente: cotizarle y dejar constancia del contacto.
+              Ya cliente: su cuenta y venderle. */}
+          {modo === "vendedor" && (
+            <AccesosRapidos
+              accesos={p.cliente_id ? [
+                { cuenta360: p.cliente_id, etiqueta: "Cuenta del cliente" },
+                { intencion: { accion: "nueva_venta", clienteId: p.cliente_id }, etiqueta: "Primera venta" },
+              ] : [
+                { intencion: { accion: "nueva_cotizacion", prospectoId: p.id }, etiqueta: "Cotizarle" },
+                { intencion: { accion: "registrar_actividad", prospectoId: p.id } },
+              ]}
+            />
+          )}
+          {modo === "cartera" && p.cliente_id && (
+            <AccesosRapidos accesos={[{ cuenta360: p.cliente_id, etiqueta: "Cuenta del cliente creado" }]} />
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <BadgeEstado tono={TONO_ESTADO[p.estado_aprobacion]}>{ESTADO_APROBACION_LABEL[p.estado_aprobacion]}</BadgeEstado>
             {(p.version ?? 1) > 1 && <span className="text-[11px] text-muted-foreground">Reenvío v{p.version}</span>}

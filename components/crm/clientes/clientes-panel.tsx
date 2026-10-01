@@ -35,6 +35,8 @@ import { toast } from "@/hooks/use-toast"
 import { MarcoTabla, FilaCargando, FilaVacia } from "@/components/crm/ui/modulo"
 import { Cuenta360Dialog } from "@/components/crm/clientes/cuenta-360-dialog"
 import { CatalogoClienteDialog } from "@/components/crm/clientes/catalogo-cliente-dialog"
+import { AccesosRapidos, accesosCliente } from "@/components/crm/ui/accesos-rapidos"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 const SIN_LISTA = "__ninguna__"
 const SIN_VENDEDOR = "__ninguno__"
@@ -53,6 +55,8 @@ export function ClientesPanel() {
   // catálogo de productos que se le pueden vender.
   const [cuenta, setCuenta] = useState<ClienteCrm | null>(null)
   const [catalogo, setCatalogo] = useState<ClienteCrm | null>(null)
+  // Llegando de otro módulo con un nombre o NIT para buscar.
+  useIntencion(["ver_clientes"], (i) => { if (i.texto) setBusqueda(i.texto) })
 
   const cargar = async () => {
     const [cRes, lRes, vRes] = await Promise.all([
@@ -238,6 +242,8 @@ export function ClientesPanel() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
+                      {/* Venderle, cotizarle, cobrarle… con el cliente ya elegido. */}
+                      <AccesosRapidos variante="menu" accesos={accesosCliente(c.id, { sinCuenta: true })} />
                     </div>
                   </TableCell>
                 </TableRow>

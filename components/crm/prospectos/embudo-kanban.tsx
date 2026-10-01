@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 const money = (n: number) =>
   n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
@@ -300,6 +301,21 @@ function TarjetaKanban({
               <p className="truncate text-xs text-muted-foreground">{p.contacto_nombre}</p>
             )}
           </div>
+          {/* Del embudo a la acción: abrir el expediente, cotizarle, anotar
+              la llamada. Ya cliente: su cuenta y venderle. */}
+          <AccesosRapidos
+            variante="menu"
+            titulo="⋯"
+            className="h-6 shrink-0 px-1.5"
+            accesos={p.cliente_id ? [
+              { cuenta360: p.cliente_id },
+              { intencion: { accion: "nueva_venta", clienteId: p.cliente_id } },
+            ] : [
+              { intencion: { accion: "ver_prospecto", prospectoId: p.id } },
+              { intencion: { accion: "nueva_cotizacion", prospectoId: p.id }, etiqueta: "Cotizarle" },
+              { intencion: { accion: "registrar_actividad", prospectoId: p.id } },
+            ]}
+          />
         </div>
 
         {p.valor_estimado > 0 && (

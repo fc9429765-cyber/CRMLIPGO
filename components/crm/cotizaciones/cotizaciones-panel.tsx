@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   Loader2, Plus, Search, FileText, Download, CheckCircle2, XCircle,
-  ArrowRight, Clock, AlertTriangle,
+  ArrowRight, Clock, AlertTriangle, Send, Wallet, FolderOpen
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import {
@@ -25,8 +25,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { abrirCuenta360, irA, useIntencion } from "@/lib/crm-navegacion"
 import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
@@ -58,6 +59,19 @@ export function CotizacionesPanel({ onNavigate }: Props) {
   const [filtroEstado, setFiltroEstado] = useState<string>("todas")
   const [ocupado, setOcupado] = useState<number | null>(null)
   const [dialogAbierto, setDialogAbierto] = useState(false)
+  // Cliente o prospecto con el que llega el formulario (lib/crm-navegacion),
+  // y el filtro por cliente cuando se viene de su cuenta.
+  const [inicial, setInicial] = useState<{ clienteId?: number; prospectoId?: number } | undefined>(undefined)
+  const [clienteFiltro, setClienteFiltro] = useState<number | null>(null)
+  useIntencion(["nueva_cotizacion", "ver_cotizaciones_cliente"], (i) => {
+    if (i.accion === "nueva_cotizacion") {
+      setInicial({ clienteId: i.clienteId, prospectoId: i.prospectoId })
+      setDialogAbierto(true)
+    } else {
+      setClienteFiltro(i.clienteId ?? null)
+      if (i.texto) setBusqueda(i.texto)
+    }
+  })
 
   const cargar = async () => {
     // Se vencen antes de listar: así el estado es correcto aunque el cron
@@ -77,11 +91,12 @@ export function CotizacionesPanel({ onNavigate }: Props) {
   const visibles = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
     return cotizaciones.filter((c) => {
+      if (clienteFiltro && c.cliente_id !== clienteFiltro) return false
       if (filtroEstado !== "todas" && c.estado !== filtroEstado) return false
       if (!t) return true
       return [c.numero, c.cliente_nombre, c.prospecto_nombre].some((x) => x?.toLowerCase().includes(t))
     })
-  }, [cotizaciones, busqueda, filtroEstado])
+  }, [cotizaciones, busqueda, filtroEstado, clienteFiltro])
 
   const descargarPdf = async (c: CotizacionConDetalle) => {
     setOcupado(c.id)
@@ -111,8 +126,17 @@ export function CotizacionesPanel({ onNavigate }: Props) {
     toast({ title: `Cotización ${ESTADO_COTIZACION_LABEL[estado].toLowerCase()}` })
   }
 
-  const convertir = async (c: CotizacionConDetalle) => {
+  const convertir = async (c: CotizacionConDetalle, aceptarPrimero = false) => {
     setOcupado(c.id)
+    // Atajo "el cliente la aceptó y ya es pedido": un paso en vez de dos.
+    if (aceptarPrimero && c.estado !== "aceptada") {
+      const ok = await cambiarEstadoCotizacion(c.id, "aceptada", empresaId)
+      if (!ok.success) {
+        setOcupado(null)
+        toast({ title: "No se pudo marcar como aceptada", description: ok.error, variant: "destructive" })
+        return
+      }
+    }
     const res = await convertirEnPedido(c.id, profile?.usuario ?? "desconocido", empresaId)
     setOcupado(null)
 
@@ -123,10 +147,12 @@ export function CotizacionesPanel({ onNavigate }: Props) {
 
     toast({
       title: "Pedido creado",
-      description: `${res.data?.numero} · queda pendiente de autorización de contabilidad y gerencia`,
+      description: `${res.data?.numero} · queda en borrador: revísalo y envíalo a aprobación`,
     })
     cargar()
-    onNavigate?.("Pedidos CRM")
+    // Directo al pedido nuevo, no a la lista: es lo siguiente que hay que mirar.
+    if (res.data?.pedidoId) irA({ accion: "ver_pedido", pedidoId: res.data.pedidoId })
+    else onNavigate?.("Pedidos CRM")
   }
 
   return (
@@ -142,7 +168,7 @@ export function CotizacionesPanel({ onNavigate }: Props) {
           </div>
         </div>
 
-        <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
+        <Dialog open={dialogAbierto} onOpenChange={(v) => { setDialogAbierto(v); if (!v) setInicial(undefined) }}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-8">
               <Plus className="mr-1.5 h-4 w-4" />
@@ -150,10 +176,13 @@ export function CotizacionesPanel({ onNavigate }: Props) {
             </Button>
           </DialogTrigger>
           <CotizacionForm
+            key={`${inicial?.clienteId ?? ""}-${inicial?.prospectoId ?? ""}`}
+            inicial={inicial}
             empresaId={empresaId}
             usuario={profile?.usuario ?? "desconocido"}
             onGuardado={() => {
               setDialogAbierto(false)
+              setInicial(undefined)
               cargar()
             }}
           />
@@ -182,6 +211,11 @@ export function CotizacionesPanel({ onNavigate }: Props) {
             ))}
           </SelectContent>
         </Select>
+        {clienteFiltro && (
+          <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setClienteFiltro(null)}>
+            Solo un cliente · quitar filtro ✕
+          </Button>
+        )}
       </div>
 
       {/* La tabla no desaparece mientras carga: la cabecera se queda en su
@@ -220,7 +254,7 @@ export function CotizacionesPanel({ onNavigate }: Props) {
                   ocupado={ocupado === c.id}
                   onPdf={() => descargarPdf(c)}
                   onEstado={(e) => cambiarEstado(c, e)}
-                  onConvertir={() => convertir(c)}
+                  onConvertir={(aceptar) => convertir(c, aceptar)}
                 />
               ))
             )}
@@ -238,12 +272,15 @@ function FilaCotizacion({
   ocupado: boolean
   onPdf: () => void
   onEstado: (e: EstadoCotizacion) => void
-  onConvertir: () => void
+  onConvertir: (aceptarPrimero?: boolean) => void
 }) {
   const diasRestantes = diasEntre(hoyISO(), c.fecha_vencimiento)
   const vigente = diasRestantes >= 0
   const porVencer = vigente && diasRestantes <= 3
   const convertible = c.estado === "aceptada" && vigente && !c.crm_pedido_id
+  // Enviada o borrador, vigente y de un cliente (no de un prospecto, que aún
+  // no puede tener pedidos): se acepta y se convierte de una vez.
+  const aceptarYConvertir = (c.estado === "enviada" || c.estado === "borrador") && vigente && !c.crm_pedido_id && !!c.cliente_id
   const tono = BADGE[c.estado]
 
   return (
@@ -319,9 +356,36 @@ function FilaCotizacion({
               )}
 
               {convertible && (
-                <DropdownMenuItem onClick={onConvertir} className="font-medium">
+                <DropdownMenuItem onClick={() => onConvertir()} className="font-medium">
                   <ArrowRight className="mr-2 h-4 w-4 text-[var(--chart-1)]" />
                   Convertir en pedido
+                </DropdownMenuItem>
+              )}
+              {aceptarYConvertir && (
+                <DropdownMenuItem onClick={() => onConvertir(true)} className="font-medium">
+                  <ArrowRight className="mr-2 h-4 w-4 text-[var(--chart-1)]" />
+                  Aceptada: convertir en pedido
+                </DropdownMenuItem>
+              )}
+
+              {/* Accesos a lo relacionado (lib/crm-navegacion). */}
+              {(c.crm_pedido_id || c.cliente_id || c.prospecto_id) && <DropdownMenuSeparator />}
+              {c.crm_pedido_id && (
+                <DropdownMenuItem onClick={() => irA({ accion: "ver_pedido", pedidoId: c.crm_pedido_id! })}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Ver el pedido
+                </DropdownMenuItem>
+              )}
+              {c.cliente_id && (
+                <DropdownMenuItem onClick={() => abrirCuenta360(c.cliente_id!)}>
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Cuenta 360 del cliente
+                </DropdownMenuItem>
+              )}
+              {!c.cliente_id && c.prospecto_id && (
+                <DropdownMenuItem onClick={() => irA({ accion: "ver_prospecto", prospectoId: c.prospecto_id! })}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Expediente del prospecto
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

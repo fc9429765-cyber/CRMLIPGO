@@ -109,6 +109,8 @@ export const MODULE_PERMISSION_MAP: Record<string, keyof UserPermissions> = {
   // Cartera
   // Tablero consolidado (DSH-02): Cartera y Gerencia. El vendedor lo ve con su
   // cartera solamente (el alcance se aplica en el servidor).
+  // Torre de aprobaciones: la ve quien aprueba CUALQUIERA de las tres cosas.
+  "Aprobaciones": "crm_recaudos_aprobar",
   "Tablero de Cartera": "crm_cartera",
   "Cuentas por Cobrar": "crm_cartera",
   "Registrar Pago": "crm_pagos",
@@ -144,6 +146,7 @@ export const MODULE_PERMISOS_ALTERNOS: Record<string, (keyof UserPermissions)[]>
   "Registrar Pago": ["crm_recaudos_registrar", "crm_recaudos_aprobar"],
   "Cuentas por Cobrar": ["crm_recaudos_aprobar"],
   "Tablero de Cartera": ["crm_recaudos_aprobar", "crm_autorizar_contabilidad", "crm_autorizar_gerencia"],
+  "Aprobaciones": ["crm_autorizar_contabilidad", "crm_autorizar_gerencia", "crm_prospectos_aprobar"],
 }
 
 /** Todas las columnas que habilitan un modulo (principal + alternativas). */

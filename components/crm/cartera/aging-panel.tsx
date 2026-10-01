@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { MarcoTabla, FilaCargando, FilaVacia } from "@/components/crm/ui/modulo"
+import { abrirCuenta360 } from "@/lib/crm-navegacion"
 
 /** Del verde al rojo según se envejece. El corriente en el color de marca. */
 const COLOR_TRAMO = [
@@ -196,7 +197,7 @@ export function AgingPanel() {
                   <FilaVacia columnas={4} mensaje="No hay cartera vencida." />
                 ) : (
                   peores.map((c) => (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/30" onClick={() => abrirCuenta360(c.id)} title="Abrir la cuenta del cliente">
                       <TableCell className="text-xs max-w-[240px] truncate font-medium">{c.nombre}</TableCell>
                       <TableCell className="text-xs text-center">{c.facturas}</TableCell>
                       <TableCell className="text-xs text-right tabular-nums text-muted-foreground">

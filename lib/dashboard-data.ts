@@ -3,7 +3,7 @@ import {
   FileText, ShoppingCart, CheckCircle, Store, Tag, Wallet, Banknote,
   TrendingUp, Route, Sparkles, BarChart3, Package, UserCheck, Settings,
   Lock, History, Percent, type LucideIcon,
-  Cable, Database, Upload, PieChart
+  Cable, Database, Upload, PieChart, ShieldCheck
 } from "lucide-react"
 
 export interface Module {
@@ -98,6 +98,7 @@ export const groups: Group[] = [
     title: "Cartera",
     icon: Wallet,
     modules: [
+      { name: "Aprobaciones", icon: ShieldCheck },
       { name: "Tablero de Cartera", icon: PieChart },
       { name: "Cuentas por Cobrar", icon: Wallet },
       { name: "Registrar Pago", icon: Banknote },

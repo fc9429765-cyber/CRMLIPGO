@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
 import { FormularioVenta, type EstadoEnvio } from "./formulario-venta"
+import { useIntencion } from "@/lib/crm-navegacion"
 
 interface Props {
   onNavigate?: (modulo: string) => void
@@ -39,6 +40,13 @@ export function VentaDirecta({ onNavigate }: Props) {
   const [enCurso, setEnCurso] = useState<Accion | null>(null)
   // Cambiar la clave vuelve a montar el formulario limpio tras guardar.
   const [version, setVersion] = useState(0)
+  // Llegando desde la cuenta de un cliente, un pedido o una aprobación: el
+  // cliente ya viene elegido y el formulario se monta de nuevo con él.
+  const [inicial, setInicial] = useState<{ clienteId: number } | undefined>(undefined)
+  useIntencion(["nueva_venta"], (i) => {
+    setInicial({ clienteId: i.clienteId })
+    setVersion((v) => v + 1)
+  })
 
   const registrar = async ({ entrada }: EstadoEnvio, accion: Accion) => {
     if (!entrada) return
@@ -77,6 +85,7 @@ export function VentaDirecta({ onNavigate }: Props) {
           description: "Envíalo a aprobación desde Pedidos cuando esté listo.",
         })
       }
+      setInicial(undefined)
       setVersion((v) => v + 1)
       onNavigate?.("Pedidos CRM")
     } finally {
@@ -110,6 +119,7 @@ export function VentaDirecta({ onNavigate }: Props) {
             key={version}
             empresaId={empresaId}
             modo="directa"
+            inicial={inicial}
             pie={(estado) => {
               const deshabilitado = enCurso != null || !estado.entrada || estado.bloqueoCredito
               return (

@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
 
 export interface MotivoRechazo {
   id: number
@@ -173,6 +174,13 @@ export function AprobacionDialog({
         </>
       }
     >
+      <AccesosRapidos
+        accesos={[
+          { cuenta360: p.cliente_id, etiqueta: "Cuenta completa del cliente" },
+          { intencion: { accion: "ver_pedidos_cliente", clienteId: p.cliente_id }, etiqueta: "Sus otros pedidos" },
+        ]}
+      />
+
       {/* PED-04: el sobrecupo es lo primero que debe ver quien aprueba. */}
       {sobrecupo && (
         <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-red-800">
