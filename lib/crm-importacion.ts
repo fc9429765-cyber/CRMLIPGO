@@ -8,7 +8,7 @@
 
 export type TipoImportacion =
   | "clientes" | "productos" | "catalogo" | "sucursales"
-  | "vendedores_usuarios" | "facturas" | "saldos_iniciales"
+  | "vendedores_usuarios" | "facturas" | "saldos_iniciales" | "notas_credito"
 
 export type TipoCampo = "texto" | "numero" | "fecha" | "booleano"
 
@@ -124,6 +124,26 @@ export const IMPORTACIONES: Record<TipoImportacion, DefinicionImportacion> = {
       { clave: "fecha_vencimiento", etiqueta: "Fecha de vencimiento", tipo: "fecha", obligatorio: true },
       { clave: "saldo", etiqueta: "Saldo pendiente", tipo: "numero", obligatorio: true },
       { clave: "vendedor", etiqueta: "Vendedor", tipo: "texto" },
+    ],
+  },
+  // CAR-01, CAR-06: con SAP apagado, las notas credito entran por archivo.
+  // Cada nota se aplica a UNA factura y baja su saldo como un abono de tipo
+  // nota_credito: queda en el detalle de la factura, en el estado de cuenta
+  // y en la trazabilidad, y no cuenta como recaudo (no es plata recibida).
+  notas_credito: {
+    tipo: "notas_credito",
+    titulo: "Notas crédito",
+    descripcion: "Aplica notas crédito a las facturas que corrigen. Baja el saldo de la factura; una nota ya cargada se omite.",
+    permiso: "crm_recaudos_aprobar",
+    campos: [
+      { clave: "documento", etiqueta: "NIT del cliente", tipo: "texto", obligatorio: true },
+      { clave: "id_cliente", etiqueta: "Id cliente", tipo: "numero", ayuda: "Opcional. Resuelve NIT repetidos." },
+      { clave: "owner", etiqueta: "Owner", tipo: "texto", obligatorio: true, ayuda: "INDUPAN o MOLINOS." },
+      { clave: "numero_nota", etiqueta: "Número de nota crédito", tipo: "texto", obligatorio: true },
+      { clave: "fecha", etiqueta: "Fecha de la nota", tipo: "fecha", obligatorio: true },
+      { clave: "numero_factura", etiqueta: "Factura que corrige", tipo: "texto", obligatorio: true },
+      { clave: "valor", etiqueta: "Valor", tipo: "numero", obligatorio: true },
+      { clave: "motivo", etiqueta: "Motivo", tipo: "texto", ayuda: "Devolución, descuento comercial, error de precio…" },
     ],
   },
 }

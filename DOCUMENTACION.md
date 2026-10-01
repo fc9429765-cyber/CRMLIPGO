@@ -1,321 +1,280 @@
 # LIPGO CRM — Qué hace hoy el sistema
 
-**Estado a 26 de septiembre de 2026** · versión `251844f` · 208 archivos · ~36.900 líneas
+**Estado a 30 de septiembre de 2026** · rama `main` · scripts de base de datos 181 a 207 ejecutados · 147 pruebas automáticas
 
-Este documento describe **lo que está construido y funcionando**, no lo que se
-planeó. Donde algo está a medias o pendiente de un dato que solo ustedes pueden
-cargar, se dice explícitamente.
+Este documento describe **lo que está construido**, no lo que se planeó. Donde algo está a medias, sin probar o esperando un dato que solo ustedes pueden cargar, se dice explícitamente.
+
+El detalle técnico de cada requisito del documento de INDUPAN (IDs PED, REC, CAR…) está en `docs/GAP_ANALYSIS_INDUPAN.md`.
 
 ---
 
 ## 1. Qué es
 
-Un CRM comercial para vender el producto de las plantas de INDUPAN (harina,
-mogolla, salvado, huevos). Cubre el recorrido completo:
+Un CRM comercial para vender el producto de las plantas de INDUPAN y de Molinos del Atlántico. Cubre el recorrido completo:
 
 ```
-Prospecto → Embudo → Cotización → Pedido → Doble autorización
-                                                 ↓
-                                        LIPgo lo despacha
-                                                 ↓
-                                     Cartera → Cobro → Comisión
+Prospecto ─→ Expediente con documentos ─→ Cartera lo aprueba ─→ Cliente en LIPgo
+                                                                     │
+Cotización ─→ Pedido ─→ Cartera ─→ Gerencia ─→ LIPgo lo despacha ←───┘
+                                        │
+                        Cuenta por cobrar (con su owner)
+                                        │
+        Vendedor reporta el pago con foto ─→ Cartera lo aprueba ─→ Saldos, recibo de caja, comisión
+                                        │
+                              SAP (cuando se encienda)
 ```
 
-Nace de LIPgo, el ERP operativo que ya usa la empresa. Se le quitó todo lo
-operativo (báscula, picking, nómina, producción) y se le construyó encima la
-parte comercial, que LIPgo no tenía.
+Nace de LIPgo, el ERP operativo que ya usa la empresa: se le quitó lo operativo (báscula, picking, nómina, producción) y se construyó encima la parte comercial.
 
 ### La relación con LIPgo
 
-Las dos aplicaciones **comparten la misma base de datos**. Esto es deliberado:
+Las dos aplicaciones **comparten la misma base de datos**, a propósito:
 
 - El CRM **lee** los maestros de LIPgo: clientes, productos, bodegas.
-- Cuando un pedido queda autorizado, el CRM lo **escribe** en las tablas de
-  pedidos de LIPgo, y LIPgo lo despacha con su proceso de siempre.
-- Son **dos aplicaciones distintas, en dos direcciones web distintas**. Tocar
-  una no afecta el código de la otra.
+- Cuando un pedido queda aprobado, el CRM lo **escribe** en las tablas de pedidos de LIPgo con la sucursal, la empresa que factura y el centro de despacho correctos, y LIPgo lo despacha con su proceso de siempre.
+- Cuando Cartera aprueba un prospecto, el CRM **crea el cliente y su sucursal en LIPgo**.
+- Son **dos aplicaciones distintas en dos direcciones web**. A las tablas de LIPgo solo se les agregaron columnas: no se borró ni renombró nada.
 
-Un pedido del CRM aparece en LIPgo como un pedido normal. Nadie en operaciones
-tiene que aprender nada nuevo.
+### INDUPAN y Molinos del Atlántico
+
+Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mezcla owners; la cartera, los recaudos y el estado de cuenta se separan por owner, porque son dos empresas con NIT distinto. Molinos **nunca** va a SAP.
 
 ---
 
-## 2. Los 26 módulos
+## 2. Los 32 módulos
 
 ### Inicio
 | Módulo | Qué hace |
 |---|---|
-| **Dashboard Comercial** | Ventas del mes, pronóstico del embudo, tasa de cierre y cartera vencida. Gráfica de ventas por día. Se refresca solo cada minuto. |
+| **Dashboard Comercial** | Ventas del mes, pronóstico del embudo, tasa de cierre y cartera vencida. |
 | **Mi Agenda** | Los compromisos del vendedor: qué visita hoy, qué tiene atrasado. |
 
 ### Prospectos
 | Módulo | Qué hace |
 |---|---|
-| **Registrar Prospecto** | Alta con **captura de GPS**, datos de contacto y productos de interés con cantidad. |
-| **Embudo de Ventas** | Tablero kanban de 7 etapas. Se arrastra la tarjeta para cambiar de etapa; funciona con ratón, dedo y teclado. |
-| **Actividades** | Bitácora de lo ya ocurrido: llamadas, visitas, correos. También con GPS. |
+| **Registrar Prospecto** | Alta con GPS y productos de interés. Al pulsar un prospecto se abre su **expediente**: documentos, datos que faltan, enlace para que el prospecto suba sus documentos, y envío a Cartera. |
+| **Aprobar Prospectos** | Bandeja de Cartera. Revisa documentos, fija cupo, plazo, lista y vendedor, y al aprobar **crea el cliente en LIPgo**. Avisa si el NIT ya existe. |
+| **Embudo de Ventas** | Kanban de 7 etapas. Se arrastra la tarjeta para cambiar de etapa. |
+| **Actividades** | Bitácora de llamadas, visitas y correos, con GPS. |
 | **Calendario de Visitas** | Vista de mes con los compromisos programados. |
 
 ### Ventas
 | Módulo | Qué hace |
 |---|---|
-| **Cotizaciones** | Emisión con vigencia parametrizable, PDF descargable, y versiones. |
-| **Nueva Venta** | Venta directa, sin pasar por cotización. |
-| **Pedidos CRM** | Listado y envío a LIPgo cuando están las dos firmas. |
-| **Autorizar Pedidos** | La bandeja de firmas. Ver sección 4. |
+| **Cotizaciones** | Emisión con vigencia parametrizable, PDF, versiones y conversión a pedido. |
+| **Nueva Venta** | Pedido directo. Muestra primero la cartera del cliente, exige sucursal, filtra el catálogo por cliente y owner con su stock, calcula el impuesto por producto y **muestra el sobrecupo con su valor exacto sin bloquear**. Se guarda como borrador o se envía a aprobación. |
+| **Pedidos CRM** | Listado con filtros (fecha, sucursal, estado, cliente, vendedor, owner, sobrecupo) y el historial completo de cada pedido. |
+| **Autorizar Pedidos** | Bandeja de aprobación: primero Cartera, luego Gerencia. Ver sección 3. |
 
 ### Clientes
 | Módulo | Qué hace |
 |---|---|
-| **Gestión de Clientes** | Datos comerciales, cupo de crédito, plazo, lista de precios asignada, bloqueo por cartera. |
+| **Gestión de Clientes** | Datos comerciales, cupo, plazo, lista de precios, bloqueo por cartera. Desde aquí se abre la **Cuenta 360** (sección 3) y el catálogo propio del cliente. |
 | **Sucursales** | Puntos de entrega con su GPS. |
-| **Listas de Precios** | Precio fijo por producto **o** porcentaje de descuento. Nunca ambos. |
+| **Listas de Precios** | Precio fijo por producto **o** porcentaje de descuento. |
 
 ### Cartera
 | Módulo | Qué hace |
 |---|---|
-| **Cuentas por Cobrar** | Facturas abiertas, ordenables por columna. Las vencidas se tiñen de rojo. |
-| **Registrar Pago** | Abonos totales o parciales. |
-| **Antigüedad de Cartera** | Aging por tramos, y a quién cobrar primero. |
+| **Tablero de Cartera** | Cartera total, por vencer, vencida por rango, mora, recaudo por mes y saldo a favor. Filtros por vendedor, empresa y rango; cortes por cliente, vendedor y empresa. |
+| **Cuentas por Cobrar** | Facturas abiertas con fecha de contabilización, vencimiento, días, abonado, saldo vencido y rango. Al pulsar una factura se ven sus abonos y de qué recaudo salió cada uno. El vendedor la ve **solo en lectura**. |
+| **Registrar Pago** | El vendedor reporta un pago desde el celular: foto del comprobante, datos prellenados por IA, reparto propuesto entre facturas. Ver sección 3. |
+| **Aprobar Recaudos** | Bandeja de Cartera: comprobante, alertas de la IA, reparto ajustable, aprobar, rechazar o anular. |
+| **Antigüedad de Cartera** | Aging por tramos y a quién cobrar primero. |
 | **Comisiones** | Liquidación por vendedor y período. |
 
 ### Inteligencia
 | Módulo | Qué hace |
 |---|---|
-| **Rutas Óptimas** | Orden de visita más corto a partir del GPS de los clientes, con mapa. |
-| **Oportunidades de Negocio** | Señales calculadas: quién bajó volumen, quién dejó de comprar, qué venderle a quién. |
+| **Rutas Óptimas** | Orden de visita más corto a partir del GPS de los clientes. |
+| **Oportunidades de Negocio** | Quién bajó volumen, quién dejó de comprar, qué venderle a quién. |
 | **Asistente IA** | Consulta en lenguaje natural sobre los datos del CRM. |
 | **Reportes** | Informes comerciales. |
 
 ### Configuración
 | Módulo | Qué hace |
 |---|---|
-| **Productos** | Solo lo comercial: fotos, descripción, precio base. No toca peso ni estiba, que son de LIPgo. |
-| **Vendedores** | Zona, meta mensual, tasa de comisión, desempeño del mes. |
-| **Parametrización** | Las 24 reglas del negocio. Ver sección 3. |
+| **Productos** | Lo comercial: fotos, descripción, precio base, owner e impuesto. |
+| **Vendedores** | Zona, meta, comisión, desempeño, y el usuario con el que entra al CRM. |
+| **Parametrización** | Las 47 reglas del negocio (sección 4). |
+| **Maestros** | Owners (con el membrete del estado de cuenta), impuestos, bancos, cuentas destino, medios de pago, motivos de rechazo, destinatarios de WhatsApp y tipos de documento. |
+| **Importar datos** | Carga desde Excel/CSV de clientes, sucursales, productos, catálogos, vínculo vendedor–usuario, números de factura, saldos iniciales y **notas crédito**. Todo pasa primero por una simulación que muestra qué se crea, qué cambia y qué tiene error. |
+| **Integraciones** | La bandeja de lo que sale hacia SAP, WhatsApp y LIPgo, y los **mapeos y la prueba de conexión con SAP** (sección 5). |
 | **Gestión de Usuarios** | Alta de usuarios, contraseñas y permisos por módulo. |
 | **Bitácora de Auditoría** | Registro de quién hizo qué. |
 
 ---
 
-## 3. Nada está escrito en el código
+## 3. Los cuatro flujos principales
 
-Se pidió que **cada regla tuviera su tabla**, y así está. Hay **24 parámetros**
-que se cambian desde Configuración → Parametrización, sin tocar código ni
-esperar a un programador:
+### Pedido
 
-| Grupo | Parámetros |
+`Borrador → Cartera → Gerencia → Aprobado → Programado en LIPgo`
+
+- El orden Cartera → Gerencia es **secuencial** (parametrizable a paralelo).
+- Cada aprobación pide la **clave del área** y además el **permiso del rol**; quien aprueba queda identificado por su sesión.
+- **La misma persona no aprueba dos veces, y nadie aprueba lo que creó.**
+- Un pedido **rechazado** (con motivo) vuelve al vendedor, que lo corrige y lo reenvía. El historial muestra cada paso con usuario, fecha y motivo.
+- Al aprobarse: se escribe en LIPgo **y se crea la cuenta por cobrar en la misma transacción** (o todo o nada); si el owner factura por SAP queda en la bandeja hacia SAP; se avisa por WhatsApp a los destinatarios configurados.
+- Doble clic no duplica: la base de datos impide que el mismo pedido entre dos veces.
+
+### Recaudo (pago de un cliente)
+
+1. El vendedor toma la **foto del comprobante**. La IA lee valor, fecha, banco y referencia y prellena el formulario. **Una foto ilegible se rechaza en el acto, con el motivo**, para tomarla de nuevo allí mismo. El mismo comprobante no se puede reportar dos veces.
+2. El sistema **propone** el reparto: **la factura más vencida primero**; lo que sobra queda como **saldo a favor**. Los saldos todavía no cambian.
+3. Si lo digitado no coincide con lo que leyó la IA (por ejemplo un cero de más), el recaudo llega a Cartera **marcado en ámbar**.
+4. **Cartera aprueba** (puede ajustar el reparto; los descuentos solo quien tiene ese permiso) o **rechaza con motivo**; el vendedor corrige y reenvía. Quien registró no puede aprobar.
+5. Al aprobar se mueven los saldos, se genera el **recibo de caja** en PDF y se causan las comisiones "por recaudo". Anular un recaudo aprobado **devuelve los saldos**.
+
+Ejemplo verificado: un pago de $15.000.000 sobre dos facturas vencidas de $10.000.000 queda aplicado $10.000.000 a la más vencida y $5.000.000 a la otra.
+
+### Prospecto a cliente
+
+1. El vendedor arma el **expediente**: RUT, cámara de comercio, cédula del representante… (la lista y cuáles son obligatorios se configuran en Maestros).
+2. Puede enviarle al prospecto un **enlace por WhatsApp** para que suba sus documentos desde el celular, sin usuario. El enlace caduca y deja de servir al enviar a Cartera.
+3. Con el expediente completo, lo envía a Cartera con el cupo y plazo que propone.
+4. **Cartera aprueba** fijando cupo, plazo, lista y vendedor, o rechaza con motivo. Al aprobar se crean **el cliente y su sucursal en LIPgo** y los documentos pasan a la carpeta del cliente. Si el NIT ya existe en LIPgo, no se crea otro: se vincula al existente.
+
+### Cuenta 360 y estado de cuenta
+
+Desde cualquier cliente se abre su **Cuenta 360**: cupo, saldo, disponible o sobrecupo, vencido, al día, días de mora, porcentajes, saldo a favor, la cartera separada por owner, gráficas de antigüedad y de recaudo de 12 meses, y pestañas de facturas, pagos, **recibos de caja** (reimprimibles) y **documentos**.
+
+El **estado de cuenta** sale en PDF con el membrete del owner (logo, NIT, dirección, texto legal, editables en Maestros → Owners). Se descarga o se **envía por WhatsApp** con un enlace que caduca a los días configurados. Si el cliente debe a las dos empresas, se genera uno por empresa.
+
+---
+
+## 4. Nada está escrito en el código
+
+Hay **47 parámetros** que se cambian desde Configuración → Parametrización, y los maestros de la sección 2. Algunos de los que más se usan:
+
+| Grupo | Ejemplos |
 |---|---|
-| **Fiscal** | IVA por defecto |
-| **Cotizaciones** | Días de vigencia · días de aviso antes de vencer |
-| **Prospectos** | Días sin gestión para alertar · días para darlo por frío · radio de validación del GPS |
-| **Comisiones** | Porcentaje por defecto · base de cálculo · **cuándo se causa** |
-| **Cartera** | Los 3 tramos de aging · días de aviso · si bloquea por mora · días de mora para bloquear |
-| **Crédito** | Si valida cupo · plazo por defecto |
-| **Descuentos** | Tope que puede dar un vendedor sin autorización |
-| **Pedidos** | Si exige doble firma · monto desde el que entra gerencia · las 2 claves |
-| **Rutas** | Máximo de paradas por día · velocidad promedio |
+| **Pedidos** | Orden de aprobación (secuencial o paralelo) · las 2 claves · si se proyecta a LIPgo al aprobar |
+| **Crédito** | Sobrecupo: permitir y marcar, o bloquear |
+| **Cartera** | Los 3 cortes de los rangos de vencimiento · nota y días del estado de cuenta · validez del enlace |
+| **Documentos** | Si la IA lee los comprobantes · modelo de IA · validez de los enlaces a comprobantes |
+| **Prospectos** | Si se exigen los documentos obligatorios · validez del enlace para el prospecto |
+| **Integraciones** | Un interruptor por cada flujo hacia SAP · reintentos · prefijo del código de cliente en SAP |
+| **Seguridad** | Modo de validación de permisos (ver sección 6) |
 
-**Los parámetros tienen vigencia.** Cambiar la comisión hoy no reescribe la
-liquidación del mes pasado: cada cambio abre un período nuevo y el anterior
-queda cerrado con su valor. Lo mismo con el IVA — cada documento guarda la tasa
-con la que se emitió.
+**Los parámetros tienen vigencia:** cambiar la comisión hoy no reescribe la liquidación del mes pasado.
 
 ---
 
-## 4. La doble autorización
+## 5. Integraciones
 
-Es el control central del sistema. Un pedido **no llega a LIPgo** hasta tener
-dos firmas: **contabilidad** y **gerencia**.
+Todo lo que sale hacia otro sistema pasa por una **bandeja de salida** (Configuración → Integraciones) con reintentos automáticos cada 5 minutos. Ningún proceso del negocio espera a que algo salga: si SAP o WhatsApp fallan, el pedido o el recaudo siguen su curso y el envío queda pendiente.
 
-Cada firma pide una clave compartida del área. Pero la clave sola no basta:
+| Sistema | Estado |
+|---|---|
+| **LIPgo — pedidos y clientes** | Funcionando: escritura directa en la base compartida. |
+| **LIPgo — recaudos** | En espera: LIPgo todavía no tiene dónde recibirlos. Quedan anotados en la bandeja. |
+| **WhatsApp** | Con la misma cuenta y plantilla de LIPgo. Apagado (solo registra) hasta configurar las variables. |
+| **SAP Business One** | **Construido y apagado.** |
 
-1. El usuario debe **tener el permiso** de ese rol.
-2. Debe escribir la **clave del área**, que se configura en Parametrización.
-3. **Quien firma queda identificado por su sesión**, con nombre y hora exacta.
+**SAP necesita tres llaves para enviar algo:** la conexión encendida (`SAP_MODE`), el interruptor de ese flujo, y que el owner facture por SAP. Con SAP apagado, los envíos de INDUPAN se acumulan como pendientes y salen al encenderlo.
 
-Y tres reglas que el sistema no deja saltarse:
+Para encenderlo, en **Integraciones → Mapeos y conexión SAP**:
+- **Probar conexión** inicia sesión en SAP y lee un cliente, sin crear nada.
+- **Qué falta para enviar** traduce lo que está en la bandeja con los códigos actuales y lista lo que falta mapear (por ejemplo "Producto #6 sin ItemCode").
+- La tabla de **códigos SAP** de clientes, productos, facturas, centros, vendedores, sucursales y condiciones de pago, con un botón que llena los vacíos desde LIPgo.
 
-- **La misma persona no puede dar las dos firmas.**
-- **Nadie autoriza un pedido que él mismo creó.**
-- Todo queda en una bitácora que **no se puede editar ni borrar**, incluso si la
-  autorización falla.
-
-### Cuando el pedido pasa a LIPgo
-
-Con las dos firmas, el pedido viaja a las tablas de pedidos de LIPgo. Hay dos
-protecciones:
-
-- **Se valida antes de escribir** que todos los productos existan con el nombre
-  exacto que LIPgo espera. Si uno falla, no se escribe nada — ni siquiera a
-  medias. Un pedido parcial en producción se rompería después, lejos del CRM y
-  difícil de rastrear.
-- **Doble clic no duplica.** Aunque se pulse dos veces, la base de datos impide
-  que el mismo pedido entre dos veces.
+En modo real, un envío al que le falta un código **espera sin gastar intentos**; al agregar el código sale solo.
 
 ---
 
-## 5. Cartera y comisiones
+## 6. Seguridad
 
-**La cartera nace sola.** Al autorizarse un pedido a crédito se crea la cuenta
-por cobrar, con vencimiento calculado desde el plazo del cliente.
-
-**El saldo no se mantiene a mano.** Es una columna calculada por la base de
-datos: valor original menos abonos. Un `UPDATE` olvidado no puede dejar cartera
-fantasma, porque no hay nada que actualizar.
-
-**El aging lee los tramos de los parámetros.** Cambiar "rango 1 hasta 30 días"
-por 15 reclasifica todo el aging sin tocar código.
-
-**Las comisiones congelan su porcentaje.** Una comisión ya liquidada guarda el
-porcentaje con el que se calculó. Cambiar la regla hoy no reescribe el pasado.
-
----
-
-## 6. Multiempresa desde el primer día
-
-Hoy opera solo la **empresa 1 (Harinera Indupan)**, pero todas las tablas
-nuevas llevan la columna de empresa, los índices la incluyen, y cada consulta
-filtra por ella.
-
-Los consecutivos se numeran **por empresa**: dos empresas pueden tener su
-cotización 0001 sin chocar. Los parámetros también son por empresa: cada una
-puede tener su propio IVA y sus propios tramos de cartera.
-
-Incorporar una segunda empresa será dar de alta sus datos, no migrar el sistema.
+- **Cada acción se valida en el servidor**, no solo ocultando botones: sesión, permiso, y que el usuario pueda ver ese cliente.
+- **El vendedor ve solo lo suyo:** sus clientes, sus pedidos, su cartera y sus recaudos. Requiere que cada vendedor esté vinculado a su usuario y los clientes asignados (ver sección 8).
+- **Modo de validación:** hoy está en **registro** (`log`): si alguien intenta algo sin permiso, queda en la bitácora pero se deja pasar, para no bloquear a nadie mientras se asignan permisos. Hay que pasarlo a **`enforce`** cuando todo esté asignado. Aprobar pedidos, recaudos y prospectos exige el permiso siempre, en cualquier modo.
+- **La base de datos no se puede leer ni escribir desde fuera del CRM:** las tablas y funciones del CRM están cerradas a la clave pública.
+- **Comprobantes y documentos** van a un almacenamiento privado y se abren con enlaces que caducan.
+- **30 permisos** independientes, otorgables en Gestión de Usuarios.
 
 ---
 
 ## 7. Lo que hay debajo
 
-**19 tablas nuevas**, todas con prefijo `crm_`, que no tocan las de LIPgo:
-
-```
-Prospectos   crm_prospectos · crm_prospecto_interes · crm_etapas
-             crm_actividades · crm_agenda
-Ventas       crm_cotizaciones · crm_cotizacion_detalle
-             crm_pedidos · crm_pedido_detalle · crm_autorizaciones_log
-Precios      crm_listas_precios · crm_lista_precio_detalle
-Cartera      crm_cuentas_cobrar · crm_pagos
-             crm_comisiones · crm_reglas_comision
-Sistema      crm_parametros · crm_consecutivos · crm_vendedores_detalle
-```
-
-Más **1 vista** (el aging, que lee los tramos de los parámetros) y **10
-funciones** en la base de datos, entre ellas la que proyecta el pedido a LIPgo
-en una sola transacción y la que resuelve el precio de un producto para un
-cliente.
-
-A las tablas compartidas con LIPgo **solo se les agregaron columnas**; no se
-borró ni se renombró nada. Por eso LIPgo sigue funcionando igual.
-
-**23 permisos** independientes, uno por módulo más los dos de autorización. El
-permiso se valida en el navegador *y otra vez en el servidor* — ocultar un botón
-no es seguridad.
+- **38 tablas** con prefijo `crm_`. A las tablas compartidas con LIPgo solo se les agregaron columnas.
+- **Scripts de base de datos** en `scripts/`, numerados **181 a 207**, todos ejecutados.
+- Las operaciones que tienen que ocurrir enteras o no ocurrir son **funciones de la base de datos** con bloqueo de filas: pasar un pedido a LIPgo con su cuenta por cobrar, aprobar y anular un recaudo, convertir un prospecto en cliente.
+- **147 pruebas automáticas** (`pnpm test`): reparto de pagos, sobrecupo, estados de pedidos, INDUPAN vs. Molinos, SAP apagado y simulado, traducción a SAP, expediente del prospecto, rangos de cartera.
+- **Multiempresa:** todas las tablas llevan la empresa; los consecutivos y los parámetros son por empresa.
+- **Datos de demostración:** `scripts/seed/demo_crm.sql` y su limpieza, con candado. Como la base es la de LIPgo, los clientes de demo se verían allá: correrlos en una copia de la base, o solo para una demo puntual.
 
 ---
 
-## 8. Cómo se ve
+## 8. Antes de empezar a usarlo
 
-El CRM y LIPgo comparten paleta y componentes. Las reglas que los hacen ver
-igual:
+### Imprescindible 🔴
 
-- Todo el texto de las tablas va en tamaño pequeño, que es lo que da el aspecto
-  denso de ERP.
-- Ver el detalle de algo **siempre** abre una ventana emergente. Nunca un panel
-  lateral.
-- Al cargar, la tabla no desaparece: el encabezado se queda y el aviso ocupa el
-  cuerpo. Así el contenido no salta dos veces por consulta.
-- Hay **dos tipos de tarjeta de indicador** y no se mezclan: una para tableros,
-  otra para módulos.
-- Todo movimiento respeta la preferencia del sistema de "reducir animaciones".
+1. **Cambiar las dos claves de aprobación** (Parametrización → pedidos). Hoy tienen valores temporales de las pruebas.
+2. **Cargar los precios base** de los productos (Configuración → Productos). A hoy **ningún producto tiene precio base**, y sin él no se puede cotizar ni vender.
+3. **Vincular cada vendedor con su usuario y asignarle sus clientes** (Importar datos → Vendedores y usuarios; Gestión de Clientes). Sin esto, los vendedores ven todo y el filtro por vendedor no actúa.
+4. **En Vercel**, las variables `ANTHROPIC_API_KEY` (lectura de comprobantes con IA) y `CRON_SECRET` (bandeja de salida).
+5. **Anular en LIPgo el pedido de prueba #12008** (cliente "PRUEBA CRM - NO DESPACHAR").
 
-### Lo que se hizo mejor que LIPgo
+### Para operar Cartera
 
-| | LIPgo | El CRM |
-|---|---|---|
-| Ordenar una tabla | Hay que exportar a Excel | Se pulsa la cabecera |
-| Tablas grandes | Se traban con miles de filas | Solo dibuja lo visible |
-| Arrastrar en móvil | No funciona | Funciona con dedo y teclado |
-| Gráficas | 6 tipos, cableadas a mano en cada pantalla | 6 tipos listos para usar |
+6. **Cuentas destino** (Maestros): las cuentas bancarias donde los clientes consignan, por empresa.
+7. **Membrete de cada owner** (Maestros → Owners): NIT, logo, dirección, texto legal.
+8. **Destinatarios de WhatsApp** (Maestros): quién recibe el aviso de pedido aprobado, recaudo registrado y prospecto por aprobar.
+
+### Después
+
+9. Pasar `seguridad.modo` a **`enforce`**.
+10. Decidir qué hacer con tres tablas de LIPgo que todavía se pueden leer sin sesión (`permisos_usuarios`, `profiles`, `whatsapp_mensajes`). Cambiarlas exige probar antes en LIPgo.
 
 ---
 
-## 9. Antes de empezar a usarlo
+## 9. Lo que no está hecho
 
-Hay **dos cosas pendientes que solo ustedes pueden hacer**, y sin ellas el
-sistema no se puede usar en serio:
-
-### 1. Cambiar las dos claves de autorización 🔴
-
-Están sembradas con el valor `CAMBIAR`. Mientras sigan así, **cualquiera que
-conozca ese valor puede firmar un pedido**.
-
-> Configuración → Parametrización → grupo "pedidos"
-
-### 2. Cargar los precios base 🔴
-
-La última vez que se revisó, **ningún producto tenía precio base**. Sin precio
-base no se puede emitir una cotización, porque no hay sobre qué aplicar el
-descuento de la lista.
-
-> Configuración → Productos — verificar y cargar los que falten
-
-### Recomendado
-
-Rotar las credenciales técnicas que se compartieron por chat durante el
-desarrollo (la clave de servicio de la base de datos y la del asistente de IA).
+- **Portal de cliente:** solo la evaluación, como pedía el requerimiento. Alcance, riesgos, pasarela PSE sugerida y esfuerzo en `docs/EVALUACION_PORTAL_CLIENTE.md`.
+- **Modo sin conexión para el vendedor en carretera:** pregunta abierta del requerimiento; no se construyó.
+- **Estado de cuenta por correo:** se descarga o se envía por WhatsApp; no por correo.
+- **Plantilla oficial del estado de cuenta:** se usa una plantilla configurable mientras INDUPAN entrega la suya.
+- **SAP no se ha probado contra un SAP real**, porque no hay uno conectado. El traductor está cubierto por pruebas.
+- **Sin probar de punta a punta en pantalla:** los recaudos, el tablero de cartera y el expediente del prospecto se probaron en la base de datos, pero falta el recorrido de un usuario real. La conversión de prospecto en cliente dentro de LIPgo no se ha ejecutado todavía (escribe en producción).
 
 ---
 
-## 10. Lo que no está hecho
+## 10. Qué revisar antes de dar por bueno el sistema
 
-Para que quede claro el alcance actual:
+Un recorrido que prueba lo importante. Se necesitan **dos usuarios** (quien registra no puede aprobar).
 
-- **Las gráficas y tablas nuevas están aplicadas en una parte de los módulos**,
-  no en todos. Los ~20 restantes funcionan, pero con la tabla sencilla.
-- **El asistente de IA está conectado**, pero aún responde sobre un conjunto
-  acotado de consultas comerciales.
-- **No hay app móvil.** El sistema se ve bien en teléfono, pero desde el
-  navegador.
-- **No hay integración con WhatsApp ni correo** para enviar cotizaciones. Se
-  descarga el PDF y se envía a mano.
-- **El módulo de Reportes es básico.** No hay constructor de informes a medida.
+**Pedido**
+1. Crear un pedido a un cliente que supere su cupo: debe mostrar el **sobrecupo con su valor exacto** y dejar enviarlo.
+2. Aprobarlo como Cartera; intentar aprobarlo también como Gerencia **con el mismo usuario**: debe rechazarlo.
+3. Rechazarlo como Gerencia con motivo, corregirlo y reenviarlo. El historial debe mostrar todo.
+4. Aprobarlo y **abrirlo en LIPgo**: debe estar con su sucursal y la empresa que factura.
 
----
+**Recaudo**
 
-## 11. Qué revisar antes de dar por bueno el sistema
+5. Registrar un pago de $15.000.000 con foto, a un cliente con dos facturas de $10.000.000 vencidas: la propuesta debe ser $10.000.000 a la más vencida y $5.000.000 a la otra.
+6. Subir una foto borrosa: debe rechazarla con el motivo.
+7. Aprobarlo con el otro usuario y ver el **recibo de caja** y los saldos actualizados en Cuentas por Cobrar.
 
-Un recorrido de una hora que prueba lo importante:
+**Prospecto**
 
-1. Entrar y comprobar que el menú muestra solo lo permitido.
-2. Cambiar la vigencia de cotización de 15 a 10 días en Parametrización.
-3. Crear un prospecto **desde el teléfono** y confirmar que captura el GPS.
-4. Arrastrarlo de etapa en el embudo. Refrescar: debe seguir donde se dejó.
-5. Crear una lista de precios con 8% de descuento y asignarla a un cliente.
-6. Cotizar a ese cliente: **el precio debe salir con el 8%** y el vencimiento
-   **a 10 días, no a 15** — eso prueba que el parámetro se está leyendo.
-7. Aceptar la cotización y verificar que el pedido copia los precios exactos.
-8. Firmar con contabilidad. **Intentar la segunda firma con el mismo usuario:
-   debe rechazarla.**
-9. Firmar con gerencia y **abrir LIPgo**: el pedido debe verse allá como uno
-   normal.
-10. Pulsar "Enviar" dos veces seguidas: el segundo intento debe fallar limpio.
-11. Registrar un abono parcial y ver que el saldo baja solo.
-12. Cambiar un tramo del aging y comprobar que la clasificación cambia sola.
+8. Crear un prospecto, enviarle el enlace, subir los documentos desde el celular y enviarlo a Cartera.
+9. Aprobarlo con el otro usuario: el cliente debe aparecer en LIPgo con su sucursal.
 
-Si los puntos 6, 8, 9, 10 y 12 pasan, lo esencial del sistema está bien.
+**Cartera**
+
+10. Abrir el Tablero de Cartera, filtrar por un vendedor y abrir la Cuenta 360 de un cliente.
+11. Descargar su estado de cuenta y enviarlo por WhatsApp.
+12. Cambiar un corte de los rangos en Parametrización y comprobar que la clasificación cambia sola.
 
 ---
 
-## 12. Dónde está todo
+## 11. Dónde está todo
 
-- **Código**: `github.com/gerenciageneral-spec/CRMLIPGO`
-- **Base de datos**: la misma de LIPgo (Supabase)
-- **Scripts de base de datos**: carpeta `scripts/`, numerados 181 a 189. Ya
-  están ejecutados.
-- **Guía visual para desarrolladores**: `components/crm/ui/README.md`
+- **Código:** `github.com/gerenciageneral-spec/CRMLIPGO`, rama `main`. Vercel publica cada cambio.
+- **Base de datos:** la misma de LIPgo (Supabase).
+- **Scripts de base de datos:** `scripts/`, 181 a 207, ejecutados. Datos de demostración en `scripts/seed/`.
+- **Requerimiento y su estado:** `docs/GAP_ANALYSIS_INDUPAN.md`.
+- **Portal de cliente:** `docs/EVALUACION_PORTAL_CLIENTE.md`.
+- **Guía visual para desarrolladores:** `components/crm/ui/README.md`.
 
-> ⚠️ **El repositorio es público.** Contiene los 806 commits heredados de
-> LIPgo, con datos de nómina, facturación y nombres de clientes reales.
-> Conviene pasarlo a privado.
+> ⚠️ **El repositorio sigue siendo público.** Contiene el código del CRM y los commits heredados de LIPgo, con datos de nómina, facturación y nombres de clientes reales. Conviene pasarlo a privado.

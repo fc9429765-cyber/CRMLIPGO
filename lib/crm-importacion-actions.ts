@@ -78,7 +78,7 @@ async function cargarIndices(db: DB, empresaId: number, tipo: TipoImportacion): 
     clientesPorDoc: new Map(), clientesPorId: new Map(), vendedores: new Map(), listas: new Map(),
     productosPorCodigo: new Map(), impuestos: new Map(), owners: new Map(),
   }
-  const necesitaClientes = ["clientes", "catalogo", "sucursales", "saldos_iniciales"].includes(tipo)
+  const necesitaClientes = ["clientes", "catalogo", "sucursales", "saldos_iniciales", "notas_credito"].includes(tipo)
 
   const [cli, ven, lis, own, imp] = await Promise.all([
     necesitaClientes
@@ -316,6 +316,33 @@ async function simularFila(
         }, antes: null,
         resumen: `Saldo ${Number(v.saldo).toLocaleString("es-CO")} · factura ${v.numero_factura}` }
     }
+
+    case "notas_credito": {
+      const r = resolverCliente(v, idx)
+      if (r.error) return err(r.error)
+      if (r.nuevo) return err(`No existe un cliente con NIT ${v.documento}`)
+      const ownerId = idx.owners.get(clave(v.owner))
+      if (!ownerId) return err(`No existe el owner "${v.owner}". Usa el código: INDUPAN o MOLINOS.`)
+      const valor = Number(v.valor)
+      if (!(valor > 0)) return err("El valor de la nota debe ser mayor que cero")
+      const { data: cuenta } = await db.from("crm_cuentas_cobrar").select("id, saldo, estado")
+        .eq("idempresa", empresaId).eq("cliente_id", r.id!).eq("owner_id", ownerId)
+        .eq("numero_factura", v.numero_factura as string).maybeSingle()
+      if (!cuenta) return err(`El cliente no tiene la factura ${v.numero_factura} de ese owner`)
+      const nota = String(v.numero_nota).trim()
+      const { data: ya } = await db.from("crm_pagos").select("id").eq("cuenta_cobrar_id", cuenta.id)
+        .eq("tipo", "nota_credito").eq("referencia", nota).is("anulado_en", null).limit(1)
+      if (ya?.length) return { accion: "omitir", errores: [], datos: v, antes: null, resumen: `La nota ${nota} ya estaba aplicada` }
+      if (!["pendiente", "parcial"].includes(cuenta.estado as string)) return err(`La factura ${v.numero_factura} está ${cuenta.estado}`)
+      if (valor > Number(cuenta.saldo)) {
+        return err(`La nota (${valor.toLocaleString("es-CO")}) supera el saldo de la factura (${Number(cuenta.saldo).toLocaleString("es-CO")})`)
+      }
+      return { accion: "crear", errores: [], datos: {
+          cuenta_id: cuenta.id, cliente_id: r.id, numero_factura: v.numero_factura, referencia: nota,
+          fecha: v.fecha, valor, motivo: v.motivo ?? null,
+        }, antes: { saldo: Number(cuenta.saldo) },
+        resumen: `Nota ${nota} por ${valor.toLocaleString("es-CO")} → factura ${v.numero_factura} (saldo queda en ${(Number(cuenta.saldo) - valor).toLocaleString("es-CO")})` }
+    }
   }
 }
 
@@ -365,7 +392,7 @@ export async function simularImportacion(
     // Dos filas del archivo para lo mismo: la segunda pisaria a la primera
     // sin que nadie lo note. Se marcan las repetidas como error.
     const llaveFila = (f: FilaSimulada) =>
-      JSON.stringify([f.datos.cliente_id ?? f.datos.documento, f.datos.producto_id, f.datos.numero_factura, f.datos.nombre, f.datos.vendedor_id, f.datos.cuenta_id])
+      JSON.stringify([f.datos.cliente_id ?? f.datos.documento, f.datos.producto_id, f.datos.numero_factura, f.datos.nombre, f.datos.vendedor_id, f.datos.cuenta_id, f.datos.referencia])
     const vistas = new Map<string, number>()
     for (const f of resultado) {
       if (f.accion === "error" || f.accion === "omitir") continue
@@ -487,6 +514,22 @@ async function aplicarFila(
       const { cuenta_id, ...cambios } = d
       const e = fallo((await db.from("crm_cuentas_cobrar").update(cambios).eq("id", cuenta_id as number)).error)
       return e ?? { entidadId: cuenta_id as number }
+    }
+    case "notas_credito": {
+      // Se vuelve a mirar el saldo al aplicar: entre la simulacion y este
+      // momento pudo entrar un recaudo, u otra nota del mismo archivo.
+      const { data: cta } = await db.from("crm_cuentas_cobrar").select("saldo, estado").eq("id", d.cuenta_id as number).maybeSingle()
+      if (!cta || !["pendiente", "parcial"].includes(cta.estado as string)) return { error: `La factura ${d.numero_factura} ya no tiene saldo` }
+      if (Number(d.valor) > Number(cta.saldo)) {
+        return { error: `La nota supera el saldo actual de la factura (${Number(cta.saldo).toLocaleString("es-CO")})` }
+      }
+      const { data, error } = await db.from("crm_pagos").insert({
+        idempresa: empresaId, cuenta_cobrar_id: d.cuenta_id, fecha_pago: d.fecha, valor: d.valor, medio_pago: "nota_credito",
+        referencia: d.referencia, tipo: "nota_credito", registrado_por: ctx.nombre,
+        observacion: `Nota crédito ${d.referencia}${d.motivo ? ` · ${d.motivo}` : ""} (importación ${importacionId})`,
+      }).select("id").single()
+      if (error) return { error: error.message }
+      return { entidadId: data.id as number }
     }
     case "saldos_iniciales": {
       const { data, error } = await db.from("crm_cuentas_cobrar").insert({
