@@ -13,7 +13,7 @@
 
 import type { LucideIcon } from "lucide-react"
 import {
-  Banknote, ClipboardList, FileText, FolderOpen, Receipt, Send, ShoppingCart, Users, Wallet,
+  Banknote, ClipboardList, FileText, FolderOpen, MapPin, Receipt, Send, ShoppingCart, Users, Wallet,
 } from "lucide-react"
 import { abrirCuenta360, irA, MODULO_DE, useModuloVisible, type Intencion } from "@/lib/crm-navegacion"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ const PRESENTACION: Record<Intencion["accion"] | "cuenta360", { etiqueta: string
   ver_prospecto: { etiqueta: "Ver expediente", icono: FolderOpen },
   registrar_actividad: { etiqueta: "Registrar actividad", icono: ClipboardList },
   ver_clientes: { etiqueta: "Ver cliente", icono: Users },
+  ver_mapa_clientes: { etiqueta: "Ver en el mapa", icono: MapPin },
 }
 
 function clave(a: Acceso) {
@@ -120,6 +121,7 @@ export function accesosCliente(clienteId: number, opciones: { sinCuenta?: boolea
     { intencion: { accion: "ver_pedidos_cliente", clienteId } },
     { intencion: { accion: "ver_cartera_cliente", clienteId } },
     { intencion: { accion: "registrar_actividad", clienteId } },
+    { intencion: { accion: "ver_mapa_clientes", clienteId } },
   ].filter(Boolean) as Acceso[]
 }
 

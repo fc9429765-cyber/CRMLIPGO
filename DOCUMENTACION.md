@@ -52,7 +52,7 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 ### Prospectos
 | Módulo | Qué hace |
 |---|---|
-| **Registrar Prospecto** | Alta con GPS y productos de interés. Al pulsar un prospecto se abre su **expediente**: documentos, datos que faltan, enlace para que el prospecto suba sus documentos, y envío a Cartera. |
+| **Registrar Prospecto** | Alta con **mapa de ubicación** (GPS, pin arrastrable o búsqueda por dirección) y productos de interés. Al pulsar un prospecto se abre su **expediente**: documentos, datos que faltan, enlace para que el prospecto suba sus documentos, y envío a Cartera. |
 | **Aprobar Prospectos** | Bandeja de Cartera. Revisa documentos, fija cupo, plazo, lista y vendedor, y al aprobar **crea el cliente en LIPgo**. Avisa si el NIT ya existe. |
 | **Embudo de Ventas** | Kanban de 7 etapas. Se arrastra la tarjeta para cambiar de etapa. |
 | **Actividades** | Bitácora de llamadas, visitas y correos, con GPS. |
@@ -69,8 +69,8 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 ### Clientes
 | Módulo | Qué hace |
 |---|---|
-| **Gestión de Clientes** | Datos comerciales, cupo, plazo, lista de precios, bloqueo por cartera. Desde aquí se abre la **Cuenta 360** (sección 3) y el catálogo propio del cliente. |
-| **Sucursales** | Puntos de entrega con su GPS. |
+| **Gestión de Clientes** | Datos comerciales, cupo, plazo, lista de precios, bloqueo por cartera y **ubicación en el mapa**. Vista **Lista** o **Mapa** con todos los clientes y sucursales ubicados, filtro por vendedor, búsqueda y "Cómo llegar" (abre Google Maps con la ruta). Desde aquí se abre la **Cuenta 360** (sección 3) y el catálogo propio del cliente. |
+| **Sucursales** | Puntos de entrega. Cada una se **ubica en el mapa** (GPS, pin o dirección) y se ve en el mapa de clientes. |
 | **Listas de Precios** | Precio fijo por producto **o** porcentaje de descuento. |
 
 ### Cartera
@@ -141,6 +141,13 @@ Ejemplo verificado: un pago de $15.000.000 sobre dos facturas vencidas de $10.00
 Desde cualquier cliente se abre su **Cuenta 360**: cupo, saldo, disponible o sobrecupo, vencido, al día, días de mora, porcentajes, saldo a favor, la cartera separada por owner, gráficas de antigüedad y de recaudo de 12 meses, y pestañas de facturas, pagos, **recibos de caja** (reimprimibles) y **documentos**.
 
 El **estado de cuenta** sale en PDF con el membrete del owner (logo, NIT, dirección, texto legal, editables en Maestros → Owners). Se descarga o se **envía por WhatsApp** con un enlace que caduca a los días configurados. Si el cliente debe a las dos empresas, se genera uno por empresa.
+
+### Mapas y ubicación
+
+- **Mapa dentro de la aplicación** al registrar un prospecto, editar un cliente o ubicar una sucursal: muestra dónde está el usuario (punto azul con su radio de precisión), permite **poner el pin con un clic o arrastrarlo**, y **buscar por dirección** cuando no se está en el sitio. Debajo se ve la dirección aproximada del pin y un enlace para abrirlo en Google Maps.
+- **Un pin puesto a mano no es evidencia de presencia**: queda marcado como "fijada en el mapa", sin precisión de GPS. En las visitas (Actividades y Mi Agenda) el pin **no se puede mover**: ahí la ubicación es prueba de que se estuvo en el sitio.
+- **Mapa de clientes y sucursales** (Gestión de Clientes → Mapa): pin azul cliente, verde sucursal, rojo cliente bloqueado. Cada pin abre su cuenta, una venta nueva o "Cómo llegar". Cuenta cuántos faltan por ubicar. Un vendedor ve solo los suyos.
+- El mapa es **OpenStreetMap (Leaflet)**, el mismo del módulo de Rutas: no necesita clave ni tiene costo. Incrustar Google Maps exigiría una clave con facturación de Google; "Cómo llegar" y "Ver en Google Maps" abren Google Maps sin ella.
 
 ### Ficha del cliente, radar y buscador
 

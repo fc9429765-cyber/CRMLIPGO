@@ -316,7 +316,8 @@ function FormularioProspecto({
       observaciones: form.observaciones.trim() || null,
       latitud: ubicacion?.latitud ?? null,
       longitud: ubicacion?.longitud ?? null,
-      gps_precision_m: ubicacion?.precision_m ?? null,
+      // Un pin puesto a mano no tiene precisión de GPS: queda en null.
+      gps_precision_m: ubicacion?.manual ? null : ubicacion?.precision_m ?? null,
       interes: interes
         .filter((l) => l.producto_nombre.trim())
         .map((l) => ({

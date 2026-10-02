@@ -37,6 +37,8 @@ import { Cuenta360Dialog } from "@/components/crm/clientes/cuenta-360-dialog"
 import { CatalogoClienteDialog } from "@/components/crm/clientes/catalogo-cliente-dialog"
 import { AccesosRapidos, accesosCliente } from "@/components/crm/ui/accesos-rapidos"
 import { useIntencion } from "@/lib/crm-navegacion"
+import { MapaClientesPanel } from "@/components/crm/clientes/mapa-clientes-panel"
+import { SubNav } from "@/components/crm/ui/sub-nav"
 
 const SIN_LISTA = "__ninguna__"
 const SIN_VENDEDOR = "__ninguno__"
@@ -56,7 +58,13 @@ export function ClientesPanel() {
   const [cuenta, setCuenta] = useState<ClienteCrm | null>(null)
   const [catalogo, setCatalogo] = useState<ClienteCrm | null>(null)
   // Llegando de otro módulo con un nombre o NIT para buscar.
-  useIntencion(["ver_clientes"], (i) => { if (i.texto) setBusqueda(i.texto) })
+  // Lista o mapa. Llegando con "ver en el mapa", se abre el mapa centrado en el cliente.
+  const [vista, setVista] = useState<"lista" | "mapa">("lista")
+  const [enfocar, setEnfocar] = useState<number | null>(null)
+  useIntencion(["ver_clientes", "ver_mapa_clientes"], (i) => {
+    if (i.accion === "ver_clientes") { setVista("lista"); if (i.texto) setBusqueda(i.texto) }
+    else { setVista("mapa"); setEnfocar(i.clienteId ?? null) }
+  })
 
   const cargar = async () => {
     const [cRes, lRes, vRes] = await Promise.all([
@@ -100,7 +108,7 @@ export function ClientesPanel() {
 
   return (
     <div className="space-y-5">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="rounded-lg bg-[var(--chart-1)]/10 p-2 text-[var(--chart-1)]">
             <Users className="h-5 w-5" aria-hidden="true" />
@@ -111,7 +119,19 @@ export function ClientesPanel() {
           administran en el sistema operativo.</p>
           </div>
         </div>
+        <SubNav<"lista" | "mapa">
+          vistas={[
+            { valor: "lista", etiqueta: "Lista", icono: Users },
+            { valor: "mapa", etiqueta: "Mapa", icono: MapPin, contador: clientes.filter((c) => c.latitud != null).length || undefined },
+          ]}
+          activa={vista}
+          onCambiar={(v) => { setVista(v); if (v === "lista") setEnfocar(null) }}
+        />
       </header>
+
+      {vista === "mapa" && <MapaClientesPanel enfocarClienteId={enfocar} />}
+
+      {vista === "lista" && (<>
 
       {/* Indicadores compactos: los de módulo, no los del tablero. */}
       <TiraKpi>
@@ -179,7 +199,10 @@ export function ClientesPanel() {
                         <span className="text-xs text-muted-foreground">{c.documento}</span>
                       )}
                       {c.latitud != null && (
-                        <MapPin className="h-3 w-3 text-[var(--chart-2)]" aria-label="Con ubicación" />
+                        <button type="button" title="Ver en el mapa" aria-label="Ver en el mapa" className="rounded hover:bg-muted"
+                          onClick={(e) => { e.stopPropagation(); setEnfocar(c.id); setVista("mapa") }}>
+                          <MapPin className="h-3 w-3 text-[var(--chart-2)]" />
+                        </button>
                       )}
                       {c.bloqueado_cartera && (
                         <Badge variant="destructive" className="text-[10px]">Bloqueado</Badge>
@@ -259,6 +282,8 @@ export function ClientesPanel() {
           </p>
         )}
       </Card>
+
+      </>)}
 
       {editando && (
         <EditorCliente

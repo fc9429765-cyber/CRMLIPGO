@@ -36,6 +36,7 @@ export type Intencion =
   | { accion: "ver_prospecto"; prospectoId: number }
   | { accion: "registrar_actividad"; clienteId?: number; prospectoId?: number }
   | { accion: "ver_clientes"; texto?: string }
+  | { accion: "ver_mapa_clientes"; clienteId?: number }
 
 export type AccionIntencion = Intencion["accion"]
 
@@ -51,6 +52,7 @@ export const MODULO_DE: Record<AccionIntencion, string> = {
   ver_prospecto: "Registrar Prospecto",
   registrar_actividad: "Actividades",
   ver_clientes: "Gestión de Clientes",
+  ver_mapa_clientes: "Gestión de Clientes",
 }
 
 const CADUCA_MS = 15_000

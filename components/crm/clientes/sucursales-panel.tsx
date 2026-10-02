@@ -9,7 +9,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Loader2, Search, Store, MapPin, Building2, ChevronRight } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { getSucursalesCrm, getClientesCrm } from "@/lib/crm-catalogos-actions"
+import { getSucursalesCrm, getClientesCrm, actualizarUbicacionSucursal } from "@/lib/crm-catalogos-actions"
+import { GpsCapture, type Ubicacion } from "@/components/crm/prospectos/gps-capture"
+import { DetalleDialog } from "@/components/crm/ui/detalle-dialog"
+import { Button } from "@/components/ui/button"
+import { irA } from "@/lib/crm-navegacion"
 import type { SucursalCrm, ClienteCrm } from "@/lib/crm-catalogos"
 import { KpiCompacto, TiraKpi } from "@/components/crm/ui/kpi-compacto"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,6 +37,26 @@ export function SucursalesPanel() {
   const [clientes, setClientes] = useState<ClienteCrm[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState("")
+  // Fijar la ubicación de una sucursal en el mapa.
+  const [fijando, setFijando] = useState<SucursalCrm | null>(null)
+  const [ubicacion, setUbicacion] = useState<Ubicacion | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const [version, setVersion] = useState(0)
+
+  const abrirFijar = (s: SucursalCrm) => {
+    setUbicacion(s.latitud != null && s.longitud != null ? { latitud: s.latitud, longitud: s.longitud, precision_m: 0, manual: true } : null)
+    setFijando(s)
+  }
+  const guardarUbicacion = async () => {
+    if (!fijando) return
+    setGuardando(true)
+    const r = await actualizarUbicacionSucursal(fijando.idbodega, ubicacion ? { latitud: ubicacion.latitud, longitud: ubicacion.longitud } : null, empresaId)
+    setGuardando(false)
+    if (!r.success) { toast({ title: "No se guardó la ubicación", description: r.error, variant: "destructive" }); return }
+    toast({ title: ubicacion ? "Ubicación guardada" : "Ubicación quitada" })
+    setFijando(null)
+    setVersion((v) => v + 1)
+  }
 
   useEffect(() => {
     let cancelado = false
@@ -46,7 +70,7 @@ export function SucursalesPanel() {
     })
 
     return () => { cancelado = true }
-  }, [empresaId])
+  }, [empresaId, version])
 
   const nombreCliente = useMemo(
     () => new Map(clientes.map((c) => [c.id, c.nombre])),
@@ -93,7 +117,7 @@ export function SucursalesPanel() {
 
   return (
     <div className="space-y-5">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="rounded-lg bg-[var(--chart-1)]/10 p-2 text-[var(--chart-1)]">
             <Store className="h-5 w-5" aria-hidden="true" />
@@ -101,9 +125,12 @@ export function SucursalesPanel() {
           <div>
             <h1 className="text-lg font-semibold leading-tight">Sucursales</h1>
             <p className="text-sm text-muted-foreground">Los puntos de entrega de cada cliente. Las administra el sistema
-          operativo; aquí se consultan para cotizar y planificar rutas.</p>
+          operativo; aquí se fija su ubicación para despachar y planificar rutas.</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" className="h-8" onClick={() => irA({ accion: "ver_mapa_clientes" })}>
+          <MapPin className="mr-1.5 h-3.5 w-3.5" /> Ver todas en el mapa
+        </Button>
       </header>
 
       {/* Tira compacta: aquí lo que importa es el listado de sucursales, así
@@ -186,17 +213,15 @@ export function SucursalesPanel() {
                         </p>
                       </div>
 
-                      {s.latitud != null ? (
-                        <MapPin
-                          className="h-4 w-4 shrink-0 text-[var(--chart-2)]"
-                          aria-label="Con ubicación"
-                        />
-                      ) : (
-                        <MapPin
-                          className="h-4 w-4 shrink-0 text-muted-foreground/30"
-                          aria-label="Sin ubicación"
-                        />
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => abrirFijar(s)}
+                        title={s.latitud != null ? "Ver o mover la ubicación" : "Fijar la ubicación"}
+                        className={`flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] hover:bg-muted ${s.latitud != null ? "text-[var(--chart-2)]" : "text-muted-foreground"}`}
+                      >
+                        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                        {s.latitud != null ? "Ubicada" : "Fijar"}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -204,6 +229,28 @@ export function SucursalesPanel() {
             </Card>
           ))}
         </div>
+      )}
+
+      {fijando && (
+        <DetalleDialog
+          abierto
+          onCerrar={() => setFijando(null)}
+          icono={MapPin}
+          titulo={fijando.nombrebodega}
+          subtitulo={[fijando.direccion, fijando.ciudad].filter(Boolean).join(" · ") || "Sucursal"}
+          pie={
+            <>
+              <Button variant="ghost" onClick={() => setFijando(null)} disabled={guardando}>Cancelar</Button>
+              <Button onClick={guardarUbicacion} disabled={guardando}>
+                {guardando && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Guardar ubicación
+              </Button>
+            </>
+          }
+        >
+          {/* Sin GPS automático: la sucursal se ubica desde la oficina casi
+              siempre. "Mi ubicación" sigue ahí para cuando se está en el sitio. */}
+          <GpsCapture value={ubicacion} onChange={setUbicacion} auto={false} titulo="Ubicación de la sucursal" alto={320} />
+        </DetalleDialog>
       )}
     </div>
   )

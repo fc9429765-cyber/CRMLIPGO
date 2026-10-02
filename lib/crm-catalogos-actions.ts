@@ -321,6 +321,11 @@ export async function getSucursalesCrm(
     // `bodegas` usa idempresa SIN guion bajo, al revés que clientes.
     let q = supabase.from("bodegas").select("*").eq("idempresa", empresaId)
     if (clienteId) q = q.eq("clienteid", clienteId)
+    // Sin cliente concreto, un vendedor solo ve las sucursales de SUS clientes.
+    if (!clienteId && ctx.alcance === "propios") {
+      const { data: mios } = await supabase.from("clientes").select("id").eq("id_empresa", empresaId).eq("vendedor_asignado", ctx.vendedorId)
+      q = q.in("clienteid", (mios ?? []).map((c) => c.id))
+    }
 
     const { data, error } = await q.order("nombrebodega")
     if (error) return { success: false, error: error.message }
@@ -340,6 +345,33 @@ export async function getSucursalesCrm(
         activo: esActivo(b.activo),
       })),
     }
+  } catch (err) {
+    return fallo(err)
+  }
+}
+
+/**
+ * Fija la ubicación de una sucursal (GPS o pin en el mapa). Es la única
+ * columna de `bodegas` que el CRM escribe: la dirección y el resto son de
+ * operación.
+ */
+export async function actualizarUbicacionSucursal(
+  idbodega: number,
+  ubicacion: { latitud: number; longitud: number } | null,
+  empresaId = 1,
+): Promise<ActionResult> {
+  try {
+    const ctx = await exigirPermiso("actualizarUbicacionSucursal", "crm_clientes")
+    const supabase = await getSupabaseAdmin()
+    const { data: b } = await supabase.from("bodegas").select("idbodega, clienteid").eq("idbodega", idbodega).eq("idempresa", empresaId).maybeSingle()
+    if (!b) return { success: false, error: "La sucursal no existe" }
+    if (b.clienteid) await asegurarClienteVisible(ctx, b.clienteid as number)
+    if (ubicacion && (Math.abs(ubicacion.latitud) > 90 || Math.abs(ubicacion.longitud) > 180)) return { success: false, error: "Coordenadas no válidas" }
+    const { error } = await supabase.from("bodegas")
+      .update({ latitud: ubicacion?.latitud ?? null, longitud: ubicacion?.longitud ?? null })
+      .eq("idbodega", idbodega)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
   } catch (err) {
     return fallo(err)
   }

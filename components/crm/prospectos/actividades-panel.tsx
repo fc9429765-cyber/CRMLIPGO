@@ -373,7 +373,7 @@ function FormularioActividad({
 
         {/* El GPS solo aparece en visitas: en una llamada no aporta nada y
             pedir permiso de ubicación sin motivo erosiona la confianza. */}
-        {esVisita && <GpsCapture value={ubicacion} onChange={setUbicacion} />}
+        {esVisita && <GpsCapture value={ubicacion} onChange={setUbicacion} permitirManual={false} titulo="Ubicación de la visita" alto={220} />}
       </div>
 
       <DialogFooter>

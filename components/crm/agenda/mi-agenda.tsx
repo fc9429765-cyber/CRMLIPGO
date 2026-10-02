@@ -394,7 +394,7 @@ function DialogoCumplir({
           </div>
 
           {/* GPS solo en visitas: en una llamada no aporta nada. */}
-          {esVisita && <GpsCapture value={ubicacion} onChange={setUbicacion} />}
+          {esVisita && <GpsCapture value={ubicacion} onChange={setUbicacion} permitirManual={false} titulo="Ubicación de la visita" alto={220} />}
         </div>
 
         <DialogFooter>
