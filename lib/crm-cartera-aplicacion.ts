@@ -131,3 +131,34 @@ export function validarAplicacionManual(
   if (total > cent(valor)) errores.push("Se aplica más de lo que se recibió")
   return errores
 }
+
+/**
+ * Reparto ELEGIDO por quien registra el pago: las facturas que el cliente dice
+ * que esta pagando, con el valor de cada una. Lo que no se aplica queda como
+ * saldo a favor. Quien llama debe validarlo antes con `validarAplicacionManual`.
+ */
+export function distribucionManual(
+  valor: number,
+  facturas: FacturaAplicable[],
+  elegidas: Pick<Aplicacion, "cuenta_cobrar_id" | "valor_aplicado">[],
+): Distribucion {
+  const porId = new Map(facturas.map((f) => [f.id, f]))
+  const aplicaciones: Aplicacion[] = []
+  let total = 0
+  for (const e of elegidas) {
+    const f = porId.get(e.cuenta_cobrar_id)
+    const aplicado = cent(e.valor_aplicado)
+    if (!f || aplicado <= 0) continue
+    total += aplicado
+    aplicaciones.push({
+      cuenta_cobrar_id: f.id,
+      numero: f.numero,
+      valor_aplicado: pesos(aplicado),
+      valor_descuento: 0,
+      saldo_anterior: f.saldo,
+      saldo_posterior: pesos(cent(f.saldo) - aplicado),
+      orden: aplicaciones.length + 1,
+    })
+  }
+  return { aplicaciones, totalAplicado: pesos(total), saldoFavor: pesos(Math.max(cent(valor) - total, 0)) }
+}

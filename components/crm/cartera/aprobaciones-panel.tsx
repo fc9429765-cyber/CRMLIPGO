@@ -128,11 +128,21 @@ export function AprobacionesPanel() {
 
   const puede = bandeja?.puede
   const nada = puede && !puede.pedidos.length && !puede.recaudos && !puede.prospectos
+  const sinPermiso = bandeja?.sinPermiso ?? { recaudos: 0, prospectos: 0 }
+  // Hay cosas esperando que este usuario no puede ver: se dice, con el
+  // permiso que falta, en vez de mostrar una bandeja vacía.
+  const avisoPermisos = [
+    sinPermiso.recaudos ? `${sinPermiso.recaudos} recaudo${sinPermiso.recaudos === 1 ? "" : "s"} (permiso "Aprobar Recaudos")` : null,
+    sinPermiso.prospectos ? `${sinPermiso.prospectos} cliente${sinPermiso.prospectos === 1 ? "" : "s"} nuevo${sinPermiso.prospectos === 1 ? "" : "s"} (permiso "Aprobar Prospectos")` : null,
+  ].filter(Boolean) as string[]
+  const textoAviso = avisoPermisos.length
+    ? `Hay ${avisoPermisos.join(" y ")} esperando aprobación que no ves porque a tu usuario le falta ese permiso. Se otorga en Configuración → Gestión de Usuarios.`
+    : null
   if (nada) {
     return (
       <Card><CardContent>
         <SinDatos icono={ShieldCheck} mensaje="No tienes aprobaciones a cargo"
-          ayuda="Esta bandeja reúne las aprobaciones de Cartera y Gerencia: pedidos, recaudos y clientes nuevos. Los permisos se otorgan en Gestión de Usuarios." />
+          ayuda={textoAviso ?? "Esta bandeja reúne las aprobaciones de Cartera y Gerencia: pedidos, recaudos y clientes nuevos. Los permisos se otorgan en Gestión de Usuarios."} />
       </CardContent></Card>
     )
   }
@@ -160,6 +170,13 @@ export function AprobacionesPanel() {
           Actualizar
         </Button>
       </header>
+
+      {textoAviso && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{textoAviso}</span>
+        </div>
+      )}
 
       <TiraKpi>
         {!bandeja ? (<><KpiEsqueleto /><KpiEsqueleto /><KpiEsqueleto /><KpiEsqueleto /></>) : (

@@ -1,34 +1,41 @@
 "use server"
 
+// Permisos de los usuarios del CRM (crm_usuarios.permisos, scripts/209).
+// Ya no se leen ni se escriben las tablas de usuarios de LIPgo.
+
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { getCurrentUser } from "@/lib/auth-actions"
+import { leerSesion } from "@/lib/crm-sesion"
 import { getCurrentEmpresaId } from "@/lib/company-filter"
 // La interfaz `UserPermissions` y el mapa `MODULE_PERMISSION_MAP` viven
 // en `permissions-map.ts` (sin "use server"). Next.js prohibe exportar
-// valores no async desde archivos con "use server", asi que el mapa no
-// puede vivir aqui. Importamos desde el modulo compartido.
-import { MODULE_PERMISSION_MAP, puedeVerModulo, type UserPermissions } from "@/lib/permissions-map"
+// valores no async desde archivos con "use server".
+import { MODULE_PERMISSION_MAP, PERMISOS_CRM, puedeVerModulo, type UserPermissions } from "@/lib/permissions-map"
 
+/** Permisos completos (todas las claves, false si no esta) a partir del jsonb. */
+function expandir(usuarioId: string, permisos: Record<string, unknown> | null | undefined): UserPermissions {
+  const out: Record<string, unknown> = { usuario_id: usuarioId }
+  for (const k of PERMISOS_CRM) out[k] = permisos?.[k] === true
+  return out as unknown as UserPermissions
+}
+
+/** Solo las claves conocidas y en true: lo que se guarda en la base. */
+function compactar(p: Partial<Record<string, unknown>>): Record<string, true> {
+  const out: Record<string, true> = {}
+  for (const k of PERMISOS_CRM) if (p[k] === true) out[k] = true
+  return out
+}
+
+/**
+ * Permisos del usuario de la SESION. El `userId` se conserva por la firma de
+ * siempre, pero si es de otro usuario devuelve null: es una accion de servidor
+ * y con el id libre cualquiera leia los permisos de otro.
+ */
 export async function getUserPermissions(userId?: string): Promise<UserPermissions | null> {
   try {
-    const supabase = await getSupabaseAdmin()
-
-    // Siempre los del usuario de la sesion. Es una accion de servidor: con el
-    // `userId` libre, cualquiera con sesion leia los permisos de otro usuario.
-    // Todos los llamadores pasan su propio id, asi que se conserva la firma.
-    const currentUser = await getCurrentUser()
-    if (!currentUser) return null
-    if (userId && userId !== currentUser.id) return null
-    userId = currentUser.id
-
-    const { data, error } = await supabase.from("permisos_usuarios").select("*").eq("usuario_id", userId).single()
-
-    if (error) {
-      console.error("Error fetching user permissions:", error)
-      return null
-    }
-
-    return data as UserPermissions
+    const s = await leerSesion()
+    if (!s) return null
+    if (userId && userId !== s.usuario.id) return null
+    return expandir(s.usuario.id, s.usuario.permisos)
   } catch (error) {
     console.error("Error in getUserPermissions:", error)
     return null
@@ -49,32 +56,25 @@ export async function checkModulePermission(moduleName: string): Promise<boolean
   }
 }
 
+const MODULO_ADMIN = "Gestión de Usuarios"
+
+/**
+ * Usuarios del CRM de la empresa, con sus permisos. Misma forma que antes
+ * (`permisos_usuarios` anidado) para no reescribir la pantalla, mas los datos
+ * de acceso que antes salian de Supabase Auth.
+ */
 export async function getAllUsersWithPermissions(selectedEmpresaId?: number | null) {
   try {
+    if (!(await checkModulePermission(MODULO_ADMIN))) return { success: false, error: "No autorizado" }
     const supabase = await getSupabaseAdmin()
 
-    // Use selectedEmpresaId if provided, otherwise fall back to current user's empresa_id
-    let empresaId = selectedEmpresaId
-    if (!empresaId) {
-      empresaId = await getCurrentEmpresaId()
-    }
-
-    if (!empresaId) {
-      console.error("Error: No empresa_id found for current user")
-      return { success: false, error: "No empresa found" }
-    }
+    const empresaId = selectedEmpresaId || (await getCurrentEmpresaId())
+    if (!empresaId) return { success: false, error: "No empresa found" }
 
     const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        `
-        id,
-        usuario,
-        empresa_id,
-        permisos_usuarios!inner (*)
-      `,
-      )
-      .eq("empresa_id", empresaId) // Filter by empresa_id
+      .from("crm_usuarios")
+      .select("id, usuario, email, nombre, empresa_id, empresas_acceso, permisos, activo, debe_cambiar_clave, ultimo_ingreso, creado_en, bloqueado_hasta")
+      .or(`empresa_id.eq.${Number(empresaId)},empresas_acceso.cs.{${Number(empresaId)}}`)
       .order("usuario", { ascending: true })
 
     if (error) {
@@ -82,70 +82,51 @@ export async function getAllUsersWithPermissions(selectedEmpresaId?: number | nu
       return { success: false, error: error.message }
     }
 
-    console.log("[v0] Fetched users with permissions:", JSON.stringify(data, null, 2))
-
-    return { success: true, data: data || [] }
+    const filas = (data ?? []).map((u: Record<string, any>) => ({
+      ...u,
+      permisos_usuarios: expandir(u.id, u.permisos),
+    }))
+    return { success: true, data: filas }
   } catch (error) {
     console.error("Error in getAllUsersWithPermissions:", error)
     return { success: false, error: String(error) }
   }
 }
 
+/**
+ * Reemplaza los permisos de un usuario del CRM. SOLO un administrador
+ * (permiso crm_usuarios): antes esta accion no validaba nada y cualquiera con
+ * sesion podia darse todos los permisos.
+ */
 export async function updateUserPermissions(userId: string, permissions: Partial<UserPermissions>) {
   try {
+    if (!(await checkModulePermission(MODULO_ADMIN))) return { success: false, error: "No autorizado" }
+    const s = await leerSesion()
     const supabase = await getSupabaseAdmin()
 
-    // Verificar si ya existen permisos para este usuario
-    const { data: existing } = await supabase.from("permisos_usuarios").select("id").eq("usuario_id", userId).single()
+    // Se FUSIONA con lo que ya tiene: la pantalla solo manda las claves que
+    // muestra, y una clave que no viene no debe apagarse por omision.
+    const { data: actual } = await supabase.from("crm_usuarios").select("permisos").eq("id", userId).maybeSingle()
+    if (!actual) return { success: false, error: "Usuario no encontrado" }
+    const entrada = permissions as Record<string, unknown>
+    const fusion: Record<string, unknown> = { ...(actual.permisos ?? {}) }
+    for (const k of PERMISOS_CRM) if (k in entrada) fusion[k] = entrada[k] === true
+    const nuevos = compactar(fusion)
 
-    if (existing) {
-      // Actualizar permisos existentes
-      const { error } = await supabase.from("permisos_usuarios").update(permissions).eq("usuario_id", userId)
-
-      if (error) {
-        console.error("Error updating user permissions:", error)
-        return { success: false, error: error.message }
-      }
-    } else {
-      // Crear nuevos permisos.
-      //
-      // INSERT ROBUSTO: la secuencia SERIAL de `permisos_usuarios.id` está
-      // desincronizada en esta BD (max(id) por delante del nextval, por filas
-      // insertadas con id explícito en el pasado). Un insert SIN id choca con la
-      // PK (`permisos_usuarios_pkey`, 23505) y rompía la creación de usuarios.
-      // Insertamos con id EXPLÍCITO = max(id)+1 y reintentamos ante colisión, así
-      // no dependemos del estado de la secuencia.
-      let creado = false
-      let lastErr: any = null
-      for (let intento = 0; intento < 8 && !creado; intento++) {
-        const { data: maxRow } = await supabase
-          .from("permisos_usuarios")
-          .select("id")
-          .order("id", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        const nextId = (maxRow?.id || 0) + 1
-        const { error } = await supabase.from("permisos_usuarios").insert({
-          id: nextId,
-          usuario_id: userId,
-          ...permissions,
-        })
-        if (!error) {
-          creado = true
-          break
-        }
-        lastErr = error
-        // 23505 = choque de PK por secuencia atrasada / carrera: reintentar con id fresco.
-        if ((error as any).code === "23505") continue
-        // Otro error: no insistir.
-        break
-      }
-      if (!creado) {
-        console.error("Error creating user permissions:", lastErr)
-        return { success: false, error: lastErr?.message || "No se pudieron crear los permisos" }
-      }
+    // Un administrador no puede quitarse a si mismo el permiso de administrar:
+    // se quedaria fuera y nadie mas podria devolverselo.
+    if (s && userId === s.usuario.id && !nuevos.crm_usuarios) {
+      return { success: false, error: "No puedes quitarte el permiso de Gestión de Usuarios." }
     }
 
+    const { error } = await supabase
+      .from("crm_usuarios")
+      .update({ permisos: nuevos, actualizado_en: new Date().toISOString() })
+      .eq("id", userId)
+    if (error) {
+      console.error("Error updating user permissions:", error)
+      return { success: false, error: error.message }
+    }
     return { success: true }
   } catch (error) {
     console.error("Error in updateUserPermissions:", error)

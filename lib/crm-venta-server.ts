@@ -11,8 +11,10 @@
 //   - Centro de despacho: debe ser uno de los del owner, y cada producto debe
 //     existir POR NOMBRE en ese centro, que es como LIPgo lo busca al armar la
 //     orden de cargue.
-//   - PED-08: si el cliente tiene catalogo, solo se venden esos productos; si
-//     no tiene y `catalogo.modo = restringido`, no se le puede vender.
+//   - PED-08: el catalogo del cliente son sus productos FAVORITOS: salen
+//     primero al vender, pero con `catalogo.modo = todos` (lo normal) se le
+//     puede vender cualquier producto. Solo con `restringido` el catalogo
+//     limita: unicamente esos productos, y sin catalogo no se le vende.
 //   - PED-11: impuesto con la tarifa de cada producto.
 //   - PED-10 / PED-14: el precio lo pone el vendedor (precio personalizado); el
 //     precio de lista lo resuelve el servidor, y el descuento frente a la
@@ -142,12 +144,14 @@ export async function prepararDocumento(
       leerParam(PARAM.CATALOGO_MODO, empresaId),
     ])
     const permitidos = new Set((cat ?? []).map((c) => Number(c.producto_id)))
-    if (permitidos.size) {
+    if (modo !== "restringido") {
+      // Catalogo = favoritos: no limita lo que se vende.
+    } else if (permitidos.size) {
       const fuera = ids.filter((id) => !permitidos.has(id))
       if (fuera.length) {
         return { ok: false, error: `No están en el catálogo del cliente: ${fuera.map((id) => porId.get(id)!.nombre).join(", ")}` }
       }
-    } else if (modo === "restringido") {
+    } else {
       return { ok: false, error: "El cliente no tiene catálogo asignado y la configuración no permite venderle sin él" }
     }
   }

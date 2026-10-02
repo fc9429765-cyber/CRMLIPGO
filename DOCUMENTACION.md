@@ -34,6 +34,7 @@ Las dos aplicaciones **comparten la misma base de datos**, a propósito:
 - Cuando un pedido queda aprobado, el CRM lo **escribe** en las tablas de pedidos de LIPgo con la sucursal, la empresa que factura y el centro de despacho correctos, y LIPgo lo despacha con su proceso de siempre.
 - Cuando Cartera aprueba un prospecto, el CRM **crea el cliente y su sucursal en LIPgo**.
 - Son **dos aplicaciones distintas en dos direcciones web**. A las tablas de LIPgo solo se les agregaron columnas: no se borró ni renombró nada.
+- **Los usuarios NO se comparten.** El CRM tiene sus propios usuarios, claves y permisos (tabla `crm_usuarios`). Un usuario de LIPgo no puede entrar al CRM, un usuario creado en el CRM no existe en LIPgo, y cambiar una clave o eliminar un usuario en un sistema no afecta al otro.
 
 ### INDUPAN y Molinos del Atlántico
 
@@ -62,7 +63,7 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 | Módulo | Qué hace |
 |---|---|
 | **Cotizaciones** | Emisión con vigencia parametrizable, PDF, versiones y conversión a pedido. |
-| **Nueva Venta** | Pedido directo. Muestra primero la cartera del cliente, exige sucursal, filtra el catálogo por cliente y owner con su stock, calcula el impuesto por producto y **muestra el sobrecupo con su valor exacto sin bloquear**. Se guarda como borrador o se envía a aprobación. |
+| **Nueva Venta** | Pedido directo. Muestra primero la cartera del cliente, exige sucursal, muestra arriba los **productos favoritos del cliente** (su catálogo asignado) y debajo, en un acordeón, **todos los productos** para buscar y vender cualquiera (con `catalogo.modo = restringido` el catálogo vuelve a limitar), filtra por owner y muestra el stock, calcula el impuesto por producto y **muestra el sobrecupo con su valor exacto sin bloquear**. Se guarda como borrador o se envía a aprobación. |
 | **Pedidos CRM** | Listado con filtros (fecha, sucursal, estado, cliente, vendedor, owner, sobrecupo) y el historial completo de cada pedido. |
 | **Autorizar Pedidos** | Bandeja de aprobación: primero Cartera, luego Gerencia. Ver sección 3. |
 
@@ -217,6 +218,7 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 
 ## 6. Seguridad
 
+- **Usuarios propios del CRM:** el ingreso no usa el Supabase Auth de LIPgo. La clave se guarda cifrada (bcrypt) y la sesión es una cookie firmada por el CRM (`CRM_AUTH_SECRET`) que dura 12 horas y se contrasta con la base en cada acción: cerrar sesión, cambiar o restablecer la clave, o desactivar al usuario la corta al instante. Tras 5 intentos fallidos la cuenta se bloquea 15 minutos. Las claves temporales (usuario nuevo, migrado o restablecido) obligan a crear una propia antes de entrar.
 - **Cada acción se valida en el servidor**, no solo ocultando botones: sesión, permiso, y que el usuario pueda ver ese cliente.
 - **El vendedor ve solo lo suyo:** sus clientes, sus pedidos, su cartera y sus recaudos. Requiere que cada vendedor esté vinculado a su usuario y los clientes asignados (ver sección 8).
 - **Modo de validación:** hoy está en **registro** (`log`): si alguien intenta algo sin permiso, queda en la bitácora pero se deja pasar, para no bloquear a nadie mientras se asignan permisos. Hay que pasarlo a **`enforce`** cuando todo esté asignado. Aprobar pedidos, recaudos y prospectos exige el permiso siempre, en cualquier modo.
@@ -229,9 +231,9 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 ## 7. Lo que hay debajo
 
 - **38 tablas** con prefijo `crm_`. A las tablas compartidas con LIPgo solo se les agregaron columnas.
-- **Scripts de base de datos** en `scripts/`, numerados **181 a 208**; el 208 (horas de alerta de la torre de aprobaciones) está por correr.
+- **Scripts de base de datos** en `scripts/`, numerados **181 a 210**; el 208 (horas de alerta de la torre de aprobaciones), el 209 (usuarios propios del CRM) y el 210 (texto del parámetro de catálogo) están por correr.
 - Las operaciones que tienen que ocurrir enteras o no ocurrir son **funciones de la base de datos** con bloqueo de filas: pasar un pedido a LIPgo con su cuenta por cobrar, aprobar y anular un recaudo, convertir un prospecto en cliente.
-- **147 pruebas automáticas** (`pnpm test`): reparto de pagos, sobrecupo, estados de pedidos, INDUPAN vs. Molinos, SAP apagado y simulado, traducción a SAP, expediente del prospecto, rangos de cartera.
+- **165 pruebas automáticas** (`pnpm test`): reparto de pagos, sobrecupo, estados de pedidos, INDUPAN vs. Molinos, SAP apagado y simulado, traducción a SAP, expediente del prospecto, rangos de cartera.
 - **Multiempresa:** todas las tablas llevan la empresa; los consecutivos y los parámetros son por empresa.
 - **Datos de demostración:** `scripts/seed/demo_crm.sql` y su limpieza, con candado. Como la base es la de LIPgo, los clientes de demo se verían allá: correrlos en una copia de la base, o solo para una demo puntual.
 
@@ -239,12 +241,12 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 
 ## 8. Cómo se ve
 
-El CRM sigue el rediseño 2026 de LIPgo, para que las dos aplicaciones se reconozcan como la misma casa:
+El CRM toma la **estructura** del rediseño 2026 de LIPgo y los **colores del Manual de Marca Indupan 2026**:
 
-- **Paleta:** barra lateral verde oscuro, teal (#0f7b6f) como color principal de botones y bandas, tarjetas blancas con esquinas redondeadas y el icono de cada área en una caja tintada de su color.
+- **Paleta Indupan:** fondo blanco harina (#F7F3EC), texto negro carbón, barra lateral, saludo y asistente en negro con detalles dorados (#D4A95E); dorado profundo (#7A5A24) como acento sobre fondos claros; **rojo Indupan (#E62D30) solo en el botón principal**. Como pide el manual, el rojo y el dorado no se tocan, nunca va texto blanco sobre dorado y no hay emojis. Letra Montserrat. Faltan el logo y las fuentes Bw Seido Round y Magical (licenciadas).
 - **Inicio:** saludo del día, el **asistente como protagonista** (una barra de pregunta que consulta datos, lleva al módulo y ejecuta acciones), el radar de lo que necesita atención, **"Continuar donde ibas"** (recientes y favoritos) y las **Áreas** con un punto rojo donde hay pendientes.
 - **Portal de cada área:** cada pantalla es un mosaico que dice para qué sirve, sus capacidades como chips, cuántos pendientes tiene hoy y una estrella para marcarla como favorita.
-- **Formularios de captura** (Nueva venta, Registrar pago, cotización, prospecto): banda verde de encabezado, como en LIPgo. Los listados llevan el título con icono.
+- **Formularios de captura** (Nueva venta, Registrar pago, cotización, prospecto): banda negra de encabezado con filete dorado. Los listados llevan el título con icono.
 - **Barra superior:** reloj, empresa, usuario, buscador Ctrl K y alertas.
 
 ---
@@ -253,6 +255,7 @@ El CRM sigue el rediseño 2026 de LIPgo, para que las dos aplicaciones se recono
 
 ### Imprescindible 🔴
 
+0. **Usuarios propios del CRM:** correr `scripts/209_crm_usuarios.sql`, **copiar la lista de claves temporales** que devuelve y entregársela a cada usuario; y en Vercel crear la variable `CRM_AUTH_SECRET` (aleatoria, de 32 caracteres o más, distinta de la local). Sin las dos cosas nadie puede entrar al CRM publicado.
 1. **Cambiar las dos claves de aprobación** (Parametrización → pedidos). Hoy tienen valores temporales de las pruebas.
 2. **Cargar los precios base** de los productos (Configuración → Productos). A hoy **ningún producto tiene precio base**, y sin él no se puede cotizar ni vender.
 3. **Vincular cada vendedor con su usuario y asignarle sus clientes** (Importar datos → Vendedores y usuarios; Gestión de Clientes). Sin esto, los vendedores ven todo y el filtro por vendedor no actúa.

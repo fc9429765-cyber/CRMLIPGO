@@ -3,7 +3,8 @@
 // desde el navegador. Solo lo importa codigo del servidor.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import { createServerClient } from "@/lib/supabase-server"
+import { cookies } from "next/headers"
+import { COOKIE_SESION, verificarSesion } from "@/lib/crm-token"
 import { cache } from "react"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -31,20 +32,15 @@ function buildClient(auditUser?: string): DBClient {
   })
 }
 
-// Resuelve el UUID del usuario logueado con el MISMO mecanismo probado que usa el
-// resto de la app (permisos, filtro por empresa): el cliente `@supabase/ssr` +
-// `auth.getUser()`, que reensambla y valida la cookie de sesión correctamente. El
-// parseo manual anterior de la cookie fallaba y dejaba TODA la auditoría como
-// 'sistema'. Memoizado por request (React `cache`) porque getSupabaseAdmin se llama
-// en cada escritura → una sola validación por request. Devuelve null fuera de sesión
-// (cron/jobs/contextos sin cookie) → auditoría 'sistema'.
+// Resuelve el id del usuario del CRM (crm_usuarios.id) desde la cookie de
+// sesion firmada. Solo se verifica la firma: para la auditoria basta saber
+// quien firmo la peticion; la vigencia la valida lib/crm-sesion.ts en cada
+// accion. Memoizado por request. Fuera de sesion (cron/jobs) devuelve null y la
+// auditoria queda como 'sistema'.
 const resolverActorId = cache(async (): Promise<string | null> => {
   try {
-    const sb = await createServerClient()
-    const {
-      data: { user },
-    } = await sb.auth.getUser()
-    return user?.id ?? null
+    const claims = await verificarSesion((await cookies()).get(COOKIE_SESION)?.value)
+    return claims?.sub ?? null
   } catch {
     return null
   }

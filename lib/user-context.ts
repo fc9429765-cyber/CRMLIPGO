@@ -1,7 +1,7 @@
 "use server"
 
 import { getUserProfile, getCurrentUser } from "./auth-actions"
-import { createClient } from "./supabase-server"
+import { getSupabaseAdminAsSystem } from "./supabase-admin"
 
 /**
  * Gets the current authenticated user's empresa_id
@@ -96,7 +96,7 @@ export async function getCurrentUserContext(): Promise<{ empresaId: number; usua
 export async function getCurrentEmpresaData(): Promise<{ nit: string; direccion: string; nombre: string }> {
   try {
     const empresaId = await getCurrentEmpresaIdForInsert()
-    const supabase = await createClient()
+    const supabase = await getSupabaseAdminAsSystem()
 
     const { data: empresaData, error } = await supabase
       .from("empresas")

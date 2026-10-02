@@ -21,7 +21,7 @@
 //      funcionan porque nadie validaba nada.
 
 import { cache } from "react"
-import { createServerClient } from "@/lib/supabase-server"
+import { leerSesion } from "@/lib/crm-sesion"
 import { getSupabaseAdminAsSystem } from "@/lib/supabase-admin"
 import { leerParam } from "@/lib/crm-parametros-server"
 import { PARAM } from "@/lib/crm-parametros"
@@ -31,7 +31,7 @@ export type Alcance = "todos" | "propios"
 
 export interface ContextoCrm {
   userId: string
-  /** Nombre de usuario (profiles.usuario). Es el que queda en la bitacora. */
+  /** Nombre de usuario (crm_usuarios.usuario). Es el que queda en la bitacora. */
   nombre: string
   empresaId: number
   permisos: Record<string, unknown>
@@ -54,32 +54,28 @@ export class ErrorPermiso extends Error {
  * valida tres cosas consulta la sesion y los permisos una sola vez.
  */
 export const getContexto = cache(async (): Promise<ContextoCrm | null> => {
-  const sb = await createServerClient()
-  const {
-    data: { user },
-  } = await sb.auth.getUser()
-  if (!user) return null
+  // Usuario propio del CRM (crm_usuarios, scripts/209). Ya no se usan
+  // profiles ni permisos_usuarios de LIPgo.
+  const s = await leerSesion()
+  if (!s) return null
+  const u = s.usuario
 
   const admin = await getSupabaseAdminAsSystem()
-  const [perfil, permisos, vendedor] = await Promise.all([
-    admin.from("profiles").select("usuario, empresa_id").eq("id", user.id).maybeSingle(),
-    admin.from("permisos_usuarios").select("*").eq("usuario_id", user.id).maybeSingle(),
-    admin
-      .from("crm_vendedores_detalle")
-      .select("vendedor_id")
-      .eq("usuario_id", user.id)
-      .eq("activo", true)
-      .maybeSingle(),
-  ])
+  const { data: vendedor } = await admin
+    .from("crm_vendedores_detalle")
+    .select("vendedor_id")
+    .eq("usuario_id", u.id)
+    .eq("activo", true)
+    .maybeSingle()
 
-  const p = (permisos.data ?? {}) as Record<string, unknown>
-  const vendedorId = (vendedor.data?.vendedor_id as number | undefined) ?? null
+  const p = u.permisos as Record<string, unknown>
+  const vendedorId = (vendedor?.vendedor_id as number | undefined) ?? null
   const veTodo = p.crm_ver_todos_clientes === true || vendedorId == null
 
   return {
-    userId: user.id,
-    nombre: (perfil.data?.usuario as string | undefined) || user.email || "usuario",
-    empresaId: (perfil.data?.empresa_id as number | undefined) ?? 1,
+    userId: u.id,
+    nombre: u.usuario || u.email || "usuario",
+    empresaId: u.empresa_id ?? 1,
     permisos: p,
     vendedorId,
     alcance: veTodo ? "todos" : "propios",
@@ -189,17 +185,11 @@ export function mensajeError(err: unknown, porDefecto = "Ocurrió un error inesp
 /**
  * Empresa sobre la que se puede trabajar. El navegador manda la del selector
  * global; se acepta si es la del usuario o una a la que tiene acceso explicito
- * (perfil_acceso_empresas). Si no, se usa la suya: cambiar un numero en la URL
- * no debe dar acceso a los datos de otra empresa.
+ * (crm_usuarios.empresas_acceso). Si no, se usa la suya: cambiar un numero en
+ * la URL no debe dar acceso a los datos de otra empresa.
  */
 export async function empresaPermitida(ctx: ContextoCrm, pedida?: number | null): Promise<number> {
   if (pedida == null || !Number.isFinite(pedida) || pedida === ctx.empresaId) return ctx.empresaId
-  const admin = await getSupabaseAdminAsSystem()
-  const { data } = await admin
-    .from("perfil_acceso_empresas")
-    .select("empresa_id")
-    .eq("profile_id", ctx.userId)
-    .eq("empresa_id", pedida)
-    .maybeSingle()
-  return data ? pedida : ctx.empresaId
+  const s = await leerSesion()
+  return s?.usuario.empresas_acceso.includes(pedida) ? pedida : ctx.empresaId
 }

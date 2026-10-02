@@ -322,12 +322,16 @@ export function FormularioVenta({
     [productos, centro],
   )
 
+  // El catálogo del cliente LIMITA solo con catalogo.modo = restringido. Con
+  // "todos" (lo normal) son sus favoritos: salen arriba y el resto se busca
+  // en el acordeón de todos los productos.
+  const catalogoLimita = params.catalogoRestringido && catalogoSet.size > 0
+
   // Lo que se puede vender con este owner, centro y cliente. Mismo criterio
-  // que prepararDocumento: owner del producto, nombre presente en el centro y
-  // catálogo del cliente por id. Si el mismo nombre existe en varias empresas
-  // se muestra una sola tarjeta, preferiendo la copia del propio centro; la
-  // del catálogo manda cuando el cliente tiene catálogo, porque ese filtro es
-  // por id.
+  // que prepararDocumento: owner del producto y nombre presente en el centro
+  // (y, si restringe, catálogo por id). Si el mismo nombre existe en varias
+  // empresas se muestra una sola tarjeta: primero la copia que está en el
+  // catálogo del cliente, luego la del propio centro.
   const disponibles = useMemo(() => {
     if (!ownerId || centro == null) return []
     const porNombre = new Map<string, ProductoCrm>()
@@ -335,12 +339,24 @@ export function FormularioVenta({
       if (p.owner_id !== ownerId) continue
       const k = normNombre(p.nombre)
       if (!nombresCentro.has(k)) continue
-      if (catalogoSet.size && !catalogoSet.has(p.id)) continue
+      if (catalogoLimita && !catalogoSet.has(p.id)) continue
       const previo = porNombre.get(k)
-      if (!previo || (previo.id_empresa !== centro && p.id_empresa === centro)) porNombre.set(k, p)
+      const mejor =
+        !previo ||
+        (!catalogoSet.has(previo.id) && catalogoSet.has(p.id)) ||
+        (catalogoSet.has(previo.id) === catalogoSet.has(p.id) && previo.id_empresa !== centro && p.id_empresa === centro)
+      if (mejor) porNombre.set(k, p)
     }
     return [...porNombre.values()]
-  }, [productos, ownerId, centro, nombresCentro, catalogoSet])
+  }, [productos, ownerId, centro, nombresCentro, catalogoSet, catalogoLimita])
+
+  // Favoritos = productos del catálogo del cliente, por id o por nombre (la
+  // tarjeta que se muestra puede ser la copia de otro centro).
+  const favoritos = useMemo(() => {
+    if (!catalogoSet.size) return new Set<number>()
+    const nombresFav = new Set(productos.filter((p) => catalogoSet.has(p.id)).map((p) => normNombre(p.nombre)))
+    return new Set(disponibles.filter((p) => catalogoSet.has(p.id) || nombresFav.has(normNombre(p.nombre))).map((p) => p.id))
+  }, [disponibles, productos, catalogoSet])
 
   const productosPorOwner = useMemo(() => {
     const m = new Map<number, number>()
@@ -379,7 +395,7 @@ export function FormularioVenta({
   const motivoLinea = (l: LineaVenta): string | null => {
     if (l.producto.owner_id !== ownerId) return "Es de otro owner"
     if (!nombresCentro.has(normNombre(l.producto.nombre))) return "No existe en el centro de despacho elegido"
-    if (catalogoSet.size && !catalogoSet.has(l.producto.id)) return "No está en el catálogo del cliente"
+    if (catalogoLimita && !catalogoSet.has(l.producto.id)) return "No está en el catálogo del cliente"
     if (!(num(l.cantidad) > 0)) return "Falta la cantidad"
     if (!(num(l.precio) > 0)) return "Falta el precio"
     return null
@@ -547,7 +563,7 @@ export function FormularioVenta({
             {cliente.lista_precio_nombre
               ? `Lista: ${cliente.lista_precio_nombre}`
               : "Sin lista asignada: se propone el precio base"}
-            {catalogo.length > 0 && ` · Catálogo propio de ${catalogo.length} producto${catalogo.length === 1 ? "" : "s"}`}
+            {catalogo.length > 0 && ` · ${catalogo.length} producto${catalogo.length === 1 ? "" : "s"} favorito${catalogo.length === 1 ? "" : "s"} (su catálogo)`}
           </p>
         )}
 
@@ -678,6 +694,7 @@ export function FormularioVenta({
         >
           <CatalogoVenta
             productos={disponibles}
+            favoritos={catalogoLimita ? undefined : favoritos}
             cantidades={cantidades}
             mostrarStock={params.mostrarStock}
             centro={centro}

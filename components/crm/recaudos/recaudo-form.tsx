@@ -10,6 +10,11 @@
 // La foto mala se rechaza aquí mismo, con el motivo (REC-21): es más barato
 // tomarla otra vez ahora que descubrirlo cuando Cartera la rechace días
 // después y el vendedor ya no esté donde el cliente.
+//
+// FACTURAS: por defecto el pago se reparte solo, la más vencida primero. Si
+// el cliente dice qué facturas está pagando, "Elegir facturas" deja marcarlas
+// y poner cuánto va a cada una; lo que no se asigne queda a favor del
+// cliente. Cartera ve ese reparto al aprobar y aún puede ajustarlo.
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -18,7 +23,7 @@ import {
 import {
   analizarComprobante, corregirRecaudo, proponerAplicacion, registrarRecaudo, type CarteraParaRecaudo,
 } from "@/lib/crm-recaudos-actions"
-import type { Distribucion } from "@/lib/crm-cartera-aplicacion"
+import { ordenarParaAplicar, validarAplicacionManual, type Distribucion } from "@/lib/crm-cartera-aplicacion"
 import { compararConComprobante, type RecaudoConDetalle } from "@/lib/crm-recaudos"
 import type { LecturaComprobante } from "@/lib/integraciones/ocr"
 import type { ClienteCrm } from "@/lib/crm-catalogos"
@@ -29,6 +34,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DatePickerField } from "@/components/ui/date-picker-field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -88,6 +94,13 @@ export function RecaudoForm({
     return () => { vivo = false }
   }, [clienteId, empresaId])
   const [cargandoCartera, setCargandoCartera] = useState(false)
+  // Reparto: automático o elegido. Al corregir uno que ya tenía facturas
+  // elegidas, se conservan.
+  const aplicacionesPrevias = (r0?.aplicaciones ?? []).filter((a) => (a as { modo?: string }).modo === "manual")
+  const [modoReparto, setModoReparto] = useState<"auto" | "elegir">(aplicacionesPrevias.length ? "elegir" : "auto")
+  const [elegidas, setElegidas] = useState<Record<number, string>>(
+    () => Object.fromEntries(aplicacionesPrevias.map((a) => [a.cuenta_cobrar_id, String(Math.round(Number(a.valor_aplicado)))])),
+  )
   const [buscador, setBuscador] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const inputArchivo = useRef<HTMLInputElement>(null)
@@ -202,6 +215,42 @@ export function RecaudoForm({
     if (inputCamara.current) inputCamara.current.value = ""
   }
 
+  // ------------------------------------------------------- facturas elegidas
+  const facturasAbiertas = useMemo(() => ordenarParaAplicar(cartera?.facturas ?? []), [cartera])
+  // Si cambia el cliente o la empresa, las facturas elegidas ya no aplican.
+  useEffect(() => {
+    if (!cartera) return
+    const ids = new Set(cartera.facturas.map((f) => f.id))
+    setElegidas((prev) => {
+      const quedan = Object.entries(prev).filter(([id]) => ids.has(Number(id)))
+      return quedan.length === Object.keys(prev).length ? prev : Object.fromEntries(quedan)
+    })
+  }, [cartera])
+  const listaElegidas = Object.entries(elegidas).map(([id, v]) => ({ cuenta_cobrar_id: Number(id), valor_aplicado: Number(v) || 0 }))
+  const totalElegido = listaElegidas.reduce((s, a) => s + a.valor_aplicado, 0)
+  const erroresElegidas = useMemo(
+    () => (modoReparto === "elegir" && cartera
+      ? validarAplicacionManual(monto, cartera.facturas, listaElegidas.map((a) => ({ ...a, valor_descuento: 0 })), { permiteDescuento: false })
+      : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [modoReparto, cartera, monto, elegidas],
+  )
+  const marcarFactura = (id: number, saldo: number, marcar: boolean) => {
+    setElegidas((prev) => {
+      const sig = { ...prev }
+      if (!marcar) {
+        delete sig[id]
+        return sig
+      }
+      // Lo que falta por asignar del pago, sin pasarse del saldo de la factura.
+      // Sin valor todavía, se propone pagar la factura completa.
+      const otros = Object.entries(prev).filter(([k]) => Number(k) !== id).reduce((s, [, v]) => s + (Number(v) || 0), 0)
+      const propuesto = monto > 0 ? Math.min(saldo, Math.max(monto - otros, 0)) : saldo
+      sig[id] = String(Math.round(propuesto))
+      return sig
+    })
+  }
+
   const exigeComprobante = medio?.requiere_comprobante ?? true
   const tieneComprobante = !!archivo || !!r0?.comprobante_id
   let pendiente: string | null = null
@@ -215,6 +264,8 @@ export function RecaudoForm({
   else if (medio?.requiere_banco && !bancoId) pendiente = `${medio.nombre} exige el banco`
   else if (!fecha) pendiente = "Indica la fecha del pago"
   else if (monto <= 0) pendiente = "Indica el valor"
+  else if (modoReparto === "elegir" && !listaElegidas.some((a) => a.valor_aplicado > 0)) pendiente = "Marca las facturas que paga o usa el reparto automático"
+  else if (modoReparto === "elegir" && erroresElegidas.length) pendiente = erroresElegidas[0]
 
   const enviar = async () => {
     if (pendiente) return
@@ -230,6 +281,9 @@ export function RecaudoForm({
     if (referencia.trim()) fd.append("referencia", referencia.trim())
     if (observaciones.trim()) fd.append("observaciones", observaciones.trim())
     if (archivo) fd.append("archivo", archivo)
+    if (modoReparto === "elegir") {
+      fd.append("aplicaciones", JSON.stringify(listaElegidas.filter((a) => a.valor_aplicado > 0)))
+    }
 
     if (r0) {
       const r = await corregirRecaudo(r0.id, fd, empresaId)
@@ -419,21 +473,106 @@ export function RecaudoForm({
 
       <AlertasRecaudo alertas={alertas} />
 
-      {/* ------------------------------------------------------ Reparto propuesto */}
-      {clienteId && monto > 0 && (
-        <section className={cn("space-y-1.5 transition-opacity", cargandoCartera && "opacity-60")}>
-          {cartera ? (
-            <TablaAplicaciones
-              titulo="Así se aplicaría (la factura más vencida primero)"
-              aplicaciones={cartera.distribucion.aplicaciones.map((a) => ({
-                ...a,
-                numero_factura: a.numero,
-                fecha_vencimiento: cartera.facturas.find((f) => f.id === a.cuenta_cobrar_id)?.fecha_vencimiento ?? null,
-              }))}
-              saldoFavor={cartera.distribucion.saldoFavor}
-            />
-          ) : (
+      {/* ------------------------------------------------------ Reparto: facturas */}
+      {clienteId && (
+        <section className={cn("space-y-2 transition-opacity", cargandoCartera && "opacity-60")}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label className="text-sm">¿A qué facturas va el pago?</Label>
+            <div className="inline-flex rounded-lg border p-0.5 text-xs" role="radiogroup" aria-label="Forma de repartir el pago">
+              {([["auto", "Automático"], ["elegir", "Elegir facturas"]] as const).map(([k, t]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={modoReparto === k}
+                  onClick={() => setModoReparto(k)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 font-medium transition-colors",
+                    modoReparto === k ? "bg-[#1A1715] text-[#F7F3EC]" : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!cartera ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : modoReparto === "auto" ? (
+            monto > 0 ? (
+              <TablaAplicaciones
+                titulo="Así se aplicaría (la factura más vencida primero)"
+                aplicaciones={cartera.distribucion.aplicaciones.map((a) => ({
+                  ...a,
+                  numero_factura: a.numero,
+                  fecha_vencimiento: cartera.facturas.find((f) => f.id === a.cuenta_cobrar_id)?.fecha_vencimiento ?? null,
+                }))}
+                saldoFavor={cartera.distribucion.saldoFavor}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">Escribe el valor para ver cómo se repartiría.</p>
+            )
+          ) : facturasAbiertas.length === 0 ? (
+            <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+              El cliente no tiene facturas pendientes{ownerId ? " con esta empresa" : ""}. El pago quedará como saldo a favor.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <ul className="divide-y rounded-lg border">
+                {facturasAbiertas.map((f) => {
+                  const marcada = elegidas[f.id] !== undefined
+                  return (
+                    <li key={f.id} className={cn("flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2", marcada && "bg-[#D4A95E]/10")}>
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                        <Checkbox checked={marcada} onCheckedChange={(v) => marcarFactura(f.id, f.saldo, v === true)} />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium">{f.numero ?? `Cuenta #${f.id}`}</span>
+                          <span className={cn("block text-[11px]", f.dias_vencido > 0 ? "text-red-700" : "text-muted-foreground")}>
+                            Vence {f.fecha_vencimiento}
+                            {f.dias_vencido > 0 ? ` · ${f.dias_vencido} día${f.dias_vencido === 1 ? "" : "s"} vencida` : " · al día"}
+                            {" · saldo "}{cop(f.saldo)}
+                          </span>
+                        </span>
+                      </label>
+                      {marcada && (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            inputMode="numeric"
+                            aria-label={`Valor para ${f.numero ?? f.id}`}
+                            className="h-9 w-36 text-right tabular-nums"
+                            value={elegidas[f.id] ? Number(elegidas[f.id]).toLocaleString("es-CO") : ""}
+                            onChange={(e) => setElegidas((prev) => ({ ...prev, [f.id]: soloDigitos(e.target.value) }))}
+                          />
+                          <Button type="button" variant="ghost" size="sm" className="h-9 px-2 text-[11px]"
+                            onClick={() => setElegidas((prev) => ({ ...prev, [f.id]: String(Math.round(f.saldo)) }))}>
+                            Todo
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+                <span>
+                  Asignado <b className="tabular-nums">{cop(totalElegido)}</b>
+                  {monto > 0 && <> de <b className="tabular-nums">{cop(monto)}</b></>}
+                </span>
+                {monto > totalElegido && totalElegido > 0 && (
+                  <span className="text-muted-foreground">Queda a favor del cliente: <b className="tabular-nums">{cop(monto - totalElegido)}</b></span>
+                )}
+                {monto <= 0 && totalElegido > 0 && (
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => setValor(String(Math.round(totalElegido)))}>
+                    Usar {cop(totalElegido)} como valor pagado
+                  </Button>
+                )}
+              </div>
+              {erroresElegidas.length > 0 && (
+                <p className="text-xs text-red-700">{erroresElegidas.join(". ")}</p>
+              )}
+            </div>
           )}
           <p className="text-[11px] text-muted-foreground">
             Es una propuesta: los saldos cambian cuando Cartera aprueba el recaudo, y puede ajustar el reparto.

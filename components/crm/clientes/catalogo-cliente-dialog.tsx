@@ -134,7 +134,9 @@ export function CatalogoClienteDialog({
       }
     >
       <p className="text-xs text-muted-foreground">
-        Sin productos asignados, el cliente puede comprar todo el catálogo (parámetro catalogo.modo).
+        Los productos que marques salen como favoritos del cliente, arriba, al crear una venta; los demás siguen
+        disponibles en "Todos los productos". Solo con el parámetro catalogo.modo = restringido el catálogo limita lo
+        que se le puede vender.
       </p>
 
       <div className="relative">

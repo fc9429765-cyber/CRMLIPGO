@@ -1,100 +1,79 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { COOKIE_SESION, verificarSesion } from "@/lib/crm-token"
 
 /**
- * Middleware de sesión.
+ * Middleware de sesion del CRM.
  *
- * HACE DOS COSAS:
+ * El CRM tiene USUARIOS PROPIOS (scripts/209_crm_usuarios.sql): ya no usa el
+ * Supabase Auth de LIPgo, asi que una sesion o un usuario de LIPgo no sirven
+ * aqui. La sesion es la cookie `crm_sesion`, firmada con CRM_AUTH_SECRET.
  *
- * 1. REFRESCA EL TOKEN. Los de Supabase caducan en una hora. Sin alguien que
- *    los renueve en cada petición, la sesión muere sola mientras el usuario
- *    trabaja: de pronto los módulos dejan de cargar sin explicación. Llamar a
- *    getUser() aquí dispara la renovación y devuelve la cookie actualizada.
+ * HACE TRES COSAS:
+ *   1. Sin sesion valida: las paginas van a /login y las API responden 401.
+ *   2. Con clave temporal pendiente de cambio: solo se deja ver
+ *      /cambiar-clave (y sus rutas); todo lo demas lleva alli.
+ *   3. Con sesion abierta, /login lleva al inicio.
  *
- * 2. BLOQUEA SIN SESIÓN. Antes no existía este archivo y toda la protección
- *    era del lado del navegador, que es como no tener ninguna.
- *
- * LO QUE NO HACE: decidir permisos por módulo. Eso sigue en PermissionGuard y,
- * sobre todo, en la validación que hace cada server action. Aquí solo se
- * responde "¿hay sesión?", no "¿puede ver esto?".
+ * LO QUE NO HACE: decidir si la sesion sigue vigente en la base (revocada,
+ * usuario desactivado) ni permisos por modulo. Aqui no hay base de datos:
+ * eso lo hace lib/crm-sesion.ts en cada accion del servidor.
  */
+
+const LIBRES = [
+  "/api/cron/", // Vercel cron: se identifican con CRON_SECRET en cada ruta
+  "/carga/", // enlace publico de documentos del prospecto (PRO-05)
+  "/api/publico/",
+  "/api/crm-auth/login",
+  "/api/crm-auth/logout",
+]
+
 export async function middleware(request: NextRequest) {
-  // Los cron de Vercel no tienen sesion: se identifican con CRON_SECRET, que
-  // valida cada ruta de /api/cron/. Si pasaran por aqui, se redirigirian a
-  // /login y nunca correrian.
-  if (request.nextUrl.pathname.startsWith("/api/cron/")) {
-    return NextResponse.next({ request })
-  }
+  const ruta = request.nextUrl.pathname
+  if (LIBRES.some((p) => ruta.startsWith(p))) return NextResponse.next({ request })
 
-  // Enlace de carga de documentos del prospecto (PRO-05): lo abre alguien que
-  // no tiene usuario. La pagina y su ruta validan el token por su cuenta y no
-  // exponen nada del CRM.
-  if (request.nextUrl.pathname.startsWith("/carga/") || request.nextUrl.pathname.startsWith("/api/publico/")) {
-    return NextResponse.next({ request })
-  }
+  const claims = await verificarSesion(request.cookies.get(COOKIE_SESION)?.value)
+  const esApi = ruta.startsWith("/api/")
+  const esLogin = ruta.startsWith("/login")
+  const esCambioClave = ruta.startsWith("/cambiar-clave") || ruta.startsWith("/api/crm-auth/")
 
-  let response = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          // Se escriben en los dos sitios: en `request` para que lo que venga
-          // después en ESTA petición ya vea el token nuevo, y en `response`
-          // para que el navegador se lo quede.
-          for (const { name, value } of cookiesToSet) {
-            request.cookies.set(name, value)
-          }
-          response = NextResponse.next({ request })
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options)
-          }
-        },
-      },
-    },
-  )
-
-  // getUser() y no getSession(): getSession lee la cookie sin comprobar que la
-  // firma sea válida, así que un token manipulado pasaría el filtro.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const esLogin = request.nextUrl.pathname.startsWith("/login")
-
-  if (!user && !esLogin) {
+  if (!claims) {
+    if (esLogin) return NextResponse.next({ request })
+    if (esApi) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
     const url = request.nextUrl.clone()
     url.pathname = "/login"
-    // Se recuerda a dónde iba para devolverlo ahí tras entrar.
-    url.searchParams.set("next", request.nextUrl.pathname)
+    url.search = ""
+    // Se recuerda a donde iba para devolverlo ahi tras entrar.
+    if (ruta !== "/") url.searchParams.set("next", ruta)
     return NextResponse.redirect(url)
   }
 
-  // Con sesión abierta, /login no tiene sentido: al inicio.
-  if (user && esLogin) {
+  if (claims.dcc && !esCambioClave) {
+    if (esApi) return NextResponse.json({ error: "Debes cambiar tu contraseña temporal." }, { status: 403 })
+    const url = request.nextUrl.clone()
+    url.pathname = "/cambiar-clave"
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
+
+  if (esLogin) {
     const url = request.nextUrl.clone()
     url.pathname = "/"
-    url.searchParams.delete("next")
+    url.search = ""
     return NextResponse.redirect(url)
   }
 
-  return response
+  return NextResponse.next({ request })
 }
 
 export const config = {
   matcher: [
     /*
-     * Todo salvo lo que no necesita sesión:
+     * Todo salvo lo que no necesita sesion:
      *  - _next/static y _next/image: archivos ya compilados
-     *  - favicon, manifest, iconos e imágenes
-     *  - /api/chat: valida la sesión por su cuenta y responde en streaming;
-     *    un redirect aquí le cortaría la respuesta a media frase
+     *  - favicon, manifest, sw.js, iconos e imagenes
+     *  - /api/chat: valida la sesion por su cuenta y responde en streaming;
+     *    un redirect aqui le cortaria la respuesta a media frase
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/chat|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|api/chat|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)",
   ],
 }

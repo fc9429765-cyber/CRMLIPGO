@@ -3,9 +3,14 @@
 import type React from "react"
 
 import { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react"
-import { createBrowserClient } from "@supabase/ssr"
-import type { User } from "@supabase/supabase-js"
 import type { UserProfile } from "@/lib/auth-actions"
+
+/** Usuario de la sesion del CRM (crm_usuarios). Ya no es el de Supabase Auth:
+ *  el CRM tiene usuarios propios, independientes de LIPgo (scripts/209). */
+export interface User {
+  id: string
+  email: string
+}
 
 export interface AccessibleEmpresa {
   id: number
@@ -51,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [lastProfileId, setLastProfileId] = useState<string | null>(null)
   
   // Empresa selection state
   const [accessibleEmpresas, setAccessibleEmpresas] = useState<AccessibleEmpresa[]>([])
@@ -68,41 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // localStorage, selector y acceso por perfil.
   const [selectedEmpresaId, setSelectedEmpresaIdState] = useState<number | null>(EMPRESA_POR_DEFECTO)
   const [loadingEmpresas, setLoadingEmpresas] = useState(true)
-
-  // SIN adaptador de cookies a propósito.
-  //
-  // La versión anterior implementaba get/set/remove con un parseo manual de
-  // document.cookie. Esa es la API de las versiones antiguas de @supabase/ssr;
-  // la 0.8 espera getAll/setAll y simplemente ignoraba aquel objeto. El
-  // resultado era que la sesión se guardaba en un formato que el servidor no
-  // sabía leer: el usuario entraba, pero cada server action lo veía como
-  // anónimo, ningún módulo cargaba y el menú salía vacío.
-  //
-  // createBrowserClient ya maneja las cookies solo, y en el formato que el
-  // cliente de servidor espera. No hay que ayudarle.
-  const supabase = useMemo(
-    () =>
-      createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ),
-    [],
-  )
-
-  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
-    try {
-      const response = await fetch(`/api/user-profile?userId=${userId}`)
-      if (!response.ok) {
-        console.error("[v0] Failed to fetch profile:", response.statusText)
-        return null
-      }
-      const profile = await response.json()
-      return profile
-    } catch (error) {
-      console.error("[v0] Error fetching profile from API:", error)
-      return null
-    }
-  }
 
   const fetchAccessibleEmpresas = useCallback(async () => {
     try {
@@ -145,86 +114,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return empresa?.nombre || null
   }, [accessibleEmpresas, selectedEmpresaId])
 
+  // Sesion del CRM: la cookie es httpOnly, asi que el navegador no la lee;
+  // se le pregunta al servidor quien es.
   useEffect(() => {
-    let isLoadingProfile = false
-    let isInitializing = true
-
-    const getSession = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
-
-        if (error) {
-          console.error("[v0] AuthProvider: Session error:", error)
-        }
-
-        setUser(session?.user ?? null)
-
-        if (session?.user && !isLoadingProfile) {
-          isLoadingProfile = true
-          const userProfile = await fetchUserProfile(session.user.id)
-          setProfile(userProfile)
-          setLastProfileId(session.user.id)
-          isLoadingProfile = false
-        } else if (!session?.user) {
-          setProfile(null)
-          setLastProfileId(null)
-        }
-      } catch (error: any) {
-        if (error?.message?.includes("Refresh Token") || error?.name === "AuthApiError") {
+    let vivo = true
+    fetch("/api/crm-auth/sesion", { cache: "no-store" })
+      .then(async (r) => (r.ok ? r.json() : { user: null, profile: null }))
+      .then((d: { user: User | null; profile: UserProfile | null }) => {
+        if (!vivo) return
+        setUser(d.user ?? null)
+        setProfile(d.profile ?? null)
+      })
+      .catch(() => {
+        if (vivo) {
           setUser(null)
           setProfile(null)
-        } else {
-          console.error("[v0] Auth session error:", error)
         }
-      } finally {
-        setLoading(false)
-        isInitializing = false
-      }
-    }
-
-    getSession()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Skip redundant updates on initial load
-      if (isInitializing) {
-        return
-      }
-
-      // Only update user if it actually changed
-      setUser((prevUser) => {
-        if (prevUser?.id === session?.user?.id) {
-          return prevUser
-        }
-        return session?.user ?? null
       })
-
-      // Only load profile if the user ID changed
-      if (session?.user?.id && lastProfileId !== session.user.id) {
-        if (!isLoadingProfile) {
-          isLoadingProfile = true
-          try {
-            const userProfile = await fetchUserProfile(session.user.id)
-            setProfile(userProfile)
-            setLastProfileId(session.user.id)
-          } catch (error) {
-            console.error("[v0] Error loading profile:", error)
-          } finally {
-            isLoadingProfile = false
-          }
-        }
-      } else if (!session?.user) {
-        setProfile(null)
-        setLastProfileId(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase, lastProfileId])
+      .finally(() => {
+        if (vivo) setLoading(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [])
 
   // Load accessible empresas when profile is loaded
   useEffect(() => {
@@ -250,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('selectedEmpresaId')
     setSelectedEmpresaIdState(EMPRESA_POR_DEFECTO)
     setAccessibleEmpresas([])
-    await supabase.auth.signOut()
+    await fetch("/api/crm-auth/logout", { method: "POST" }).catch(() => {})
     setUser(null)
     setProfile(null)
   }

@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LogIn, Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
-import { createBrowserClient } from "@supabase/ssr"
 
 export function LoginForm() {
   const router = useRouter()
@@ -21,34 +20,33 @@ export function LoginForm() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     try {
-      console.log("[v0] Attempting client-side login with email:", email)
-
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Usuario propio del CRM (scripts/209): un usuario de LIPgo no existe aqui.
+      const res = await fetch("/api/crm-auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       })
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; debeCambiarClave?: boolean }
 
-      if (signInError) {
-        console.error("[v0] Login error:", signInError.message)
-        setError(signInError.message || "Credenciales inválidas")
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Correo o contraseña incorrectos.")
         setLoading(false)
         return
       }
 
-      if (data.user) {
-        console.log("[v0] Login successful, user:", data.user.id)
-        console.log("[v0] Redirecting to home page...")
+      // Clave temporal: antes de nada, la cambia.
+      if (data.debeCambiarClave) {
+        window.location.href = "/cambiar-clave"
+        return
+      }
+
+      {
         // Marcamos el flag de "recien iniciado" para que la pagina
         // principal muestre el splash de bienvenida una sola vez tras
         // el login. Usamos sessionStorage (no localStorage) para que
@@ -90,16 +88,17 @@ export function LoginForm() {
           <CardTitle className="text-2xl font-bold tracking-tight">
             LIPGO <span className="text-[var(--chart-1)]">CRM</span>
           </CardTitle>
-          <CardDescription>Gestión comercial · Ingresa tus credenciales</CardDescription>
+          <CardDescription>Gestión comercial · Ingresa con tu usuario del CRM</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="email">Correo o usuario</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="usuario@ejemplo.com"
+                type="text"
+                autoComplete="username"
+                placeholder="usuario@indupan.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -113,6 +112,7 @@ export function LoginForm() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

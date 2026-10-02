@@ -47,7 +47,9 @@ export async function getAuditoriaActores(): Promise<{ id: string; usuario: stri
   try {
     if (!(await checkModulePermission(MODULO))) return []
     const sb = await getSupabaseAdminAsSystem()
-    const { data } = await sb.from("profiles").select("id, usuario").order("usuario", { ascending: true })
+    // Usuarios del CRM (crm_usuarios). Los migrados conservan su id de LIPgo,
+    // asi que sus movimientos anteriores siguen resolviendo nombre.
+    const { data } = await sb.from("crm_usuarios").select("id, usuario").order("usuario", { ascending: true })
     const lista = (data ?? []).map((p: any) => ({ id: p.id as string, usuario: p.usuario as string }))
     return [{ id: "__sistema__", usuario: "Sistema / automático" }, ...lista]
   } catch {

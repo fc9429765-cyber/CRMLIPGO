@@ -4,12 +4,12 @@
 // modulo con esa directiva, y aqui se exportan una interfaz y un objeto. Las
 // funciones que CONSULTAN permisos viven en permissions-actions.ts.
 //
-// La tabla `permisos_usuarios` es COMPARTIDA con LIPgo, que sigue en produccion
-// con sus ~153 columnas operativas. El script 186 agrega las columnas crm_*
-// sin borrar ninguna: para el CRM las viejas simplemente no existen, y para
-// LIPgo las nuevas son invisibles.
+// Los permisos viven en crm_usuarios.permisos (jsonb, scripts/209): el CRM
+// tiene usuarios propios, independientes de LIPgo. Antes eran columnas crm_*
+// de la tabla permisos_usuarios de LIPgo (script 186); esas columnas quedan
+// alli sin uso.
 
-/** Columnas crm_* de `permisos_usuarios` (ver scripts/186_crm_permisos.sql). */
+/** Permisos del usuario del CRM, con los nombres de siempre. */
 export interface UserPermissions {
   usuario_id: string
 
@@ -63,6 +63,18 @@ export interface UserPermissions {
   crm_integraciones_admin: boolean
   crm_descuentos_admin: boolean
 }
+
+/** Todas las claves de permiso del CRM. Es la lista blanca de lo que se puede
+ *  guardar en crm_usuarios.permisos: cualquier otra clave se descarta. */
+export const PERMISOS_CRM = [
+  "crm_dashboard", "crm_agenda", "crm_prospectos", "crm_embudo", "crm_actividades",
+  "crm_cotizaciones", "crm_pedidos", "crm_autorizar_contabilidad", "crm_autorizar_gerencia",
+  "crm_clientes", "crm_listas_precios", "crm_cartera", "crm_pagos", "crm_comisiones",
+  "crm_ia_rutas", "crm_ia_oportunidades", "crm_reportes", "crm_productos", "crm_vendedores",
+  "crm_parametros", "crm_usuarios", "crm_auditoria", "crm_ver_todos_clientes",
+  "crm_recaudos_registrar", "crm_recaudos_aprobar", "crm_prospectos_aprobar", "crm_maestros_admin",
+  "crm_importar", "crm_integraciones_admin", "crm_descuentos_admin",
+] as const satisfies readonly Exclude<keyof UserPermissions, "usuario_id">[]
 
 /**
  * Nombre visible del modulo -> columna de permiso.

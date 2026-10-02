@@ -20,7 +20,7 @@ export interface ActionResult<T = unknown> {
 export interface VendedorDetalle {
   vendedor_id: number
   idempresa: number
-  /** profiles.id. Si esta, el vendedor entra al CRM y ve solo lo suyo. */
+  /** crm_usuarios.id. Si esta, el vendedor entra al CRM y ve solo lo suyo. */
   usuario_id: string | null
   zona: string | null
   ciudad_base: string | null
@@ -234,9 +234,11 @@ export async function getUsuariosDisponibles(): Promise<
   try {
     await exigirPermiso("getUsuariosDisponibles", "crm_vendedores", "crm_usuarios")
     const supabase = await getSupabaseAdmin()
+    // Usuarios propios del CRM (scripts/209), no los de LIPgo.
     const { data, error } = await supabase
-      .from("profiles")
+      .from("crm_usuarios")
       .select("id, usuario")
+      .eq("activo", true)
       .order("usuario")
 
     if (error) return { success: false, error: error.message }

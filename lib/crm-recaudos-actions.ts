@@ -27,7 +27,7 @@ import { registrarEvento } from "@/lib/crm-eventos"
 import { encolar, encolarAviso, encolarSap } from "@/lib/integraciones/outbox"
 import { leerComprobante, type LecturaComprobante } from "@/lib/integraciones/ocr"
 import { guardarDocumento, huella, recaudoConMismoComprobante, urlFirmada, validarArchivo } from "@/lib/crm-documentos-server"
-import { distribuirPago, validarAplicacionManual, type Distribucion, type FacturaAplicable } from "@/lib/crm-cartera-aplicacion"
+import { distribuirPago, validarAplicacionManual, type Distribucion, type FacturaAplicable, distribucionManual } from "@/lib/crm-cartera-aplicacion"
 import { compararConComprobante, type AplicacionRecaudo, type EstadoRecaudo, type Recaudo, type RecaudoConDetalle } from "@/lib/crm-recaudos"
 import { liquidarComisionInterna } from "@/lib/crm-comisiones-server"
 import type { MomentoComision } from "@/lib/crm-cartera"
@@ -186,6 +186,32 @@ function leerCampos(fd: FormData) {
 
 type Campos = ReturnType<typeof leerCampos>
 
+type Elegida = { cuenta_cobrar_id: number; valor_aplicado: number }
+
+/** Facturas que eligio quien registra el pago. null = reparto automatico. */
+function leerElegidas(fd: FormData): Elegida[] | null {
+  const raw = fd.get("aplicaciones")
+  if (raw == null || String(raw).trim() === "") return null
+  try {
+    const lista = JSON.parse(String(raw)) as unknown
+    if (!Array.isArray(lista)) return null
+    const out = lista
+      .map((a) => ({ cuenta_cobrar_id: Number((a as Elegida).cuenta_cobrar_id), valor_aplicado: Number((a as Elegida).valor_aplicado) }))
+      .filter((a) => Number.isFinite(a.cuenta_cobrar_id) && Number.isFinite(a.valor_aplicado) && a.valor_aplicado > 0)
+    return out.length ? out : null
+  } catch {
+    return null
+  }
+}
+
+/** Valida las facturas elegidas contra la cartera abierta del cliente. */
+async function validarElegidas(empresaId: number, clienteId: number, ownerId: number | null, valor: number, elegidas: Elegida[] | null) {
+  if (!elegidas) return null
+  const cartera = await carteraInterna(empresaId, clienteId, ownerId)
+  const errores = validarAplicacionManual(valor, cartera.facturas, elegidas.map((e) => ({ ...e, valor_descuento: 0 })), { permiteDescuento: false })
+  return errores.length ? errores.join(". ") : null
+}
+
 /**
  * Valida los datos del recaudo contra los maestros y decide su owner.
  * Devuelve el owner resuelto y el nombre del banco (para comparar con la IA).
@@ -240,6 +266,9 @@ export async function registrarRecaudo(fd: FormData, empresaId = 1): Promise<Act
 
     const v = await validarCampos(empresaId, c, archivo, true)
     if ("error" in v) return { success: false, error: v.error }
+    const elegidas = leerElegidas(fd)
+    const errElegidas = await validarElegidas(empresaId, c.cliente_id!, v.ownerId, c.valor!, elegidas)
+    if (errElegidas) return { success: false, error: errElegidas }
 
     // Comprobante: duplicado y lectura con IA.
     let lectura: LecturaComprobante | null = null
@@ -304,7 +333,7 @@ export async function registrarRecaudo(fd: FormData, empresaId = 1): Promise<Act
       await db.from("crm_recaudos").update({ comprobante_id: doc.id }).eq("id", rec.id)
     }
 
-    const distribucion = await guardarPropuesta(empresaId, rec.id, c.cliente_id!, v.ownerId, c.valor!)
+    const distribucion = await guardarPropuesta(empresaId, rec.id, c.cliente_id!, v.ownerId, c.valor!, elegidas)
 
     await registrarEvento({
       empresaId, entidad: "recaudo", entidadId: rec.id, tipo: "registrado", estadoHasta: "pendiente_aprobacion",
@@ -321,17 +350,24 @@ export async function registrarRecaudo(fd: FormData, empresaId = 1): Promise<Act
   }
 }
 
-/** Reemplaza la propuesta automatica de reparto de un recaudo pendiente. */
-async function guardarPropuesta(empresaId: number, recaudoId: number, clienteId: number, ownerId: number | null, valor: number) {
+/**
+ * Guarda el reparto propuesto de un recaudo pendiente: el que eligio quien lo
+ * registro (modo manual) o, si no eligio, el automatico (la mas vencida
+ * primero). Cartera lo ve al aprobar y aun puede cambiarlo (REC-18).
+ */
+async function guardarPropuesta(
+  empresaId: number, recaudoId: number, clienteId: number, ownerId: number | null, valor: number,
+  elegidas: Elegida[] | null = null,
+) {
   const db = await getSupabaseAdmin()
   const cartera = await carteraInterna(empresaId, clienteId, ownerId)
-  const distribucion = distribuirPago(valor, cartera.facturas)
+  const distribucion = elegidas ? distribucionManual(valor, cartera.facturas, elegidas) : distribuirPago(valor, cartera.facturas)
   await db.from("crm_recaudo_aplicaciones").delete().eq("recaudo_id", recaudoId)
   if (distribucion.aplicaciones.length) {
     await db.from("crm_recaudo_aplicaciones").insert(distribucion.aplicaciones.map((a) => ({
       idempresa: empresaId, recaudo_id: recaudoId, cuenta_cobrar_id: a.cuenta_cobrar_id,
       valor_aplicado: a.valor_aplicado, valor_descuento: 0, saldo_anterior: a.saldo_anterior,
-      saldo_posterior: a.saldo_posterior, orden: a.orden, modo: "auto",
+      saldo_posterior: a.saldo_posterior, orden: a.orden, modo: elegidas ? "manual" : "auto",
     })))
   }
   return distribucion
@@ -637,6 +673,9 @@ export async function corregirRecaudo(id: number, fd: FormData, empresaId = 1): 
     const archivo = archivoRaw instanceof File && archivoRaw.size > 0 ? archivoRaw : null
     const v = await validarCampos(empresaId, c, archivo, false)
     if ("error" in v) return { success: false, error: v.error }
+    const elegidas = leerElegidas(fd)
+    const errElegidas = await validarElegidas(empresaId, r.cliente_id, v.ownerId, c.valor!, elegidas)
+    if (errElegidas) return { success: false, error: errElegidas }
 
     let lectura: LecturaComprobante | null = (r.ocr as LecturaComprobante | null) ?? null
     let comprobanteId = r.comprobante_id
@@ -665,7 +704,7 @@ export async function corregirRecaudo(id: number, fd: FormData, empresaId = 1): 
       motivo_rechazo_id: null, motivo_rechazo: null,
     }).eq("id", id).eq("estado", "rechazado").select("id")
     if (!data?.length) return { success: false, error: "El recaudo cambió de estado. Recarga la pantalla." }
-    await guardarPropuesta(empresaId, id, r.cliente_id, v.ownerId, c.valor!)
+    await guardarPropuesta(empresaId, id, r.cliente_id, v.ownerId, c.valor!, elegidas)
     await registrarEvento({
       empresaId, entidad: "recaudo", entidadId: id, tipo: "reenviado", estadoDesde: "rechazado", estadoHasta: "pendiente_aprobacion",
       usuarioId: ctx.userId, usuarioNombre: ctx.nombre, nota: alertas.length ? alertas.join(". ") : null, datos: { version: (r.version ?? 1) + 1 },

@@ -17,4 +17,7 @@ export interface AuthMetaUsuario {
   email: string | null
   last_sign_in_at: string | null
   created_at: string | null
+  activo?: boolean
+  /** Tiene una clave temporal sin cambiar. */
+  debe_cambiar_clave?: boolean
 }

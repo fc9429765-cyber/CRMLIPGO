@@ -13,7 +13,7 @@
 
 import { useRouter } from "next/navigation"
 import {
-  Building2, LogOut, User as UserIcon, CalendarClock, UserPlus,
+  Building2, KeyRound, LogOut, User as UserIcon, CalendarClock, UserPlus,
   FileWarning, Wallet, Stamp, Loader2,
   ClipboardCheck,
   Banknote,
@@ -144,6 +144,10 @@ export function TopBar({ onNavigateModule }: TopBarProps) {
                 {profile?.usuario ?? "Usuario"}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/cambiar-clave")}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Cambiar contraseña
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión

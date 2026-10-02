@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getAllUsersWithPermissions, updateUserPermissions } from "@/lib/permissions-actions"
-import { crearUsuario, resetearPassword, eliminarUsuario, getAuthMetaUsuarios } from "@/lib/user-admin-actions"
+import { crearUsuario, resetearPassword, eliminarUsuario, getAuthMetaUsuarios, cambiarEstadoUsuario } from "@/lib/user-admin-actions"
+import { validarClaveNueva } from "@/lib/crm-token"
 import type { AuthMetaUsuario } from "@/lib/user-admin-types"
 import {
   getAllEmpresas,
@@ -142,7 +143,8 @@ function generarPasswordSegura(): string {
   window.crypto.getRandomValues(arr)
   let out = ""
   for (let i = 0; i < n; i++) out += chars[arr[i] % chars.length]
-  return out
+  // La regla del CRM exige letras y numeros: si el azar no puso alguno, otra vez.
+  return validarClaveNueva(out) ? generarPasswordSegura() : out
 }
 
 // inactivo = >30 dias sin iniciar sesion (o nunca).
@@ -441,8 +443,9 @@ export function UserPermissionsManagement() {
       toast({ title: "Datos incompletos", description: "Correo, usuario, contraseña y empresa son obligatorios.", variant: "destructive" })
       return
     }
-    if (form.password.length < 8) {
-      toast({ title: "Contraseña muy corta", description: "Usa al menos 8 caracteres.", variant: "destructive" })
+    const invalidaNueva = validarClaveNueva(form.password)
+    if (invalidaNueva) {
+      toast({ title: "Contraseña no válida", description: invalidaNueva, variant: "destructive" })
       return
     }
     setCreating(true)
@@ -456,7 +459,7 @@ export function UserPermissionsManagement() {
     })
     setCreating(false)
     if (result.success) {
-      toast({ title: "Usuario creado", description: `${form.usuario} puede iniciar sesión con su correo (ya validado).` })
+      toast({ title: "Usuario creado", description: `${form.usuario} entra con esa contraseña temporal y al primer ingreso deberá cambiarla.` })
       setCreateOpen(false)
       const [refreshed, meta] = await Promise.all([getAllUsersWithPermissions(selectedEmpresaId), getAuthMetaUsuarios()])
       const list = (refreshed.data as UserWithPermissions[]) || []
@@ -471,19 +474,36 @@ export function UserPermissionsManagement() {
 
   const handleReset = async () => {
     if (!selectedUser) return
-    if (resetPwd.length < 8) {
-      toast({ title: "Contraseña muy corta", description: "Usa al menos 8 caracteres.", variant: "destructive" })
+    const invalidaReset = validarClaveNueva(resetPwd)
+    if (invalidaReset) {
+      toast({ title: "Contraseña no válida", description: invalidaReset, variant: "destructive" })
       return
     }
     setResetting(true)
     const result = await resetearPassword(selectedUser.id, resetPwd)
     setResetting(false)
     if (result.success) {
-      toast({ title: "Contraseña actualizada", description: `Comunícale la nueva contraseña a ${selectedUser.usuario}.` })
+      toast({ title: "Contraseña actualizada", description: `Es temporal: ${selectedUser.usuario} deberá cambiarla al entrar. Sus sesiones abiertas se cerraron.` })
       setResetOpen(false)
       setResetPwd("")
     } else {
       toast({ title: "Error", description: result.error || "No se pudo cambiar la contraseña.", variant: "destructive" })
+    }
+  }
+
+  const handleEstado = async () => {
+    if (!selectedUser) return
+    const activar = authMeta[selectedUser.id]?.activo === false
+    const result = await cambiarEstadoUsuario(selectedUser.id, activar)
+    if (result.success) {
+      toast({
+        title: activar ? "Usuario activado" : "Usuario desactivado",
+        description: activar ? `${selectedUser.usuario} puede volver a entrar.` : `${selectedUser.usuario} ya no puede entrar; sus sesiones se cerraron.`,
+      })
+      const meta = await getAuthMetaUsuarios()
+      if (meta.success && meta.data) setAuthMeta(meta.data)
+    } else {
+      toast({ title: "Error", description: result.error || "No se pudo cambiar el estado.", variant: "destructive" })
     }
   }
 
@@ -493,7 +513,7 @@ export function UserPermissionsManagement() {
     const result = await eliminarUsuario(selectedUser.id)
     setDeleting(false)
     if (result.success) {
-      toast({ title: "Usuario eliminado", description: `${selectedUser.usuario} fue eliminado del sistema.` })
+      toast({ title: "Usuario eliminado", description: `${selectedUser.usuario} fue eliminado del CRM. LIPgo no cambia.` })
       setDeleteOpen(false)
       setSelectedUser(null)
       setPermissions({})
@@ -634,7 +654,11 @@ export function UserPermissionsManagement() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="relative z-[1] flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate text-foreground">{u.usuario}</p>
+                        <p className="font-semibold text-sm truncate text-foreground">
+                          {u.usuario}
+                          {authMeta[u.id]?.activo === false && <span className="ml-1.5 text-[10px] font-semibold text-red-700">· desactivado</span>}
+                          {authMeta[u.id]?.debe_cambiar_clave && authMeta[u.id]?.activo !== false && <span className="ml-1.5 text-[10px] font-semibold text-amber-700">· clave temporal</span>}
+                        </p>
                         {email && <p className="text-xs text-muted-foreground truncate">{email}</p>}
                         <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
@@ -691,6 +715,12 @@ export function UserPermissionsManagement() {
                             <span className={`h-1.5 w-1.5 rounded-full ${estadoSel.activo ? "bg-emerald-500" : "bg-slate-400"}`} />
                             {estadoSel.activo ? "Activo" : "Inactivo"}
                           </span>
+                          {authMeta[selectedUser.id]?.activo === false && (
+                            <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">Desactivado</span>
+                          )}
+                          {authMeta[selectedUser.id]?.debe_cambiar_clave && (
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Clave temporal</span>
+                          )}
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={estadoSel.exacto ?? undefined}>
                             <Clock className="h-3 w-3" />
                             {estadoSel.relativo}
@@ -711,6 +741,16 @@ export function UserPermissionsManagement() {
                       >
                         <KeyRound className="h-3.5 w-3.5" />
                         Contraseña
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 bg-card"
+                        disabled={isSelf}
+                        title={isSelf ? "No puedes desactivar tu propio usuario" : undefined}
+                        onClick={handleEstado}
+                      >
+                        {authMeta[selectedUser.id]?.activo === false ? "Activar" : "Desactivar"}
                       </Button>
                       <Button
                         variant="outline"
@@ -1041,7 +1081,7 @@ export function UserPermissionsManagement() {
                       id="nu-pwd"
                       type={showPwd ? "text" : "password"}
                       autoComplete="new-password"
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder="Mínimo 10, con letras y números"
                       value={form.password}
                       onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                       className="pr-9"
@@ -1161,7 +1201,7 @@ export function UserPermissionsManagement() {
             <DialogHeader>
               <DialogTitle>Resetear contraseña</DialogTitle>
               <DialogDescription>
-                {selectedUser ? `Define una nueva contraseña para ${selectedUser.usuario}. Tendrá efecto inmediato.` : ""}
+                {selectedUser ? `Define una contraseña temporal para ${selectedUser.usuario}. Al entrar deberá cambiarla, y sus sesiones abiertas se cierran ya.` : ""}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-1.5 py-2">
@@ -1172,7 +1212,7 @@ export function UserPermissionsManagement() {
                     id="rp-pwd"
                     type={showResetPwd ? "text" : "password"}
                     autoComplete="new-password"
-                    placeholder="Mínimo 8 caracteres"
+                    placeholder="Mínimo 10, con letras y números"
                     value={resetPwd}
                     onChange={(e) => setResetPwd(e.target.value)}
                     className="pr-9"
@@ -1218,8 +1258,9 @@ export function UserPermissionsManagement() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Eliminar a {selectedUser?.usuario}?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción es permanente. Se eliminará la cuenta de acceso, sus permisos y sus accesos a empresas y
-                owners. El usuario no podrá volver a iniciar sesión.
+                Esta acción es permanente. Se eliminará su usuario del CRM, con sus permisos y accesos, y no podrá
+                volver a entrar al CRM. Su usuario de LIPgo, si lo tiene, no cambia. Si solo quieres quitarle el
+                acceso por un tiempo, usa Desactivar.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

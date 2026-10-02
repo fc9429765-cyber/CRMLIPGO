@@ -249,13 +249,14 @@ async function simularFila(
       const vid = resolverVendedor(v.vendedor, idx)
       if (!vid) return err(`No existe el vendedor "${v.vendedor}"`)
       const u = String(v.usuario).trim().toLowerCase()
-      const { data: perfil } = await db.from("profiles").select("id, usuario").ilike("usuario", u).maybeSingle()
-      let userId = perfil?.id as string | undefined
-      if (!userId) {
-        const { data } = await db.auth.admin.listUsers({ perPage: 1000 })
-        userId = data?.users.find((x) => x.email?.toLowerCase() === u)?.id
-      }
-      if (!userId) return err(`No existe el usuario "${v.usuario}"`)
+      // Usuarios propios del CRM (crm_usuarios), por nombre de usuario o correo.
+      const { data: cu } = await db
+        .from("crm_usuarios")
+        .select("id")
+        .ilike(u.includes("@") ? "email" : "usuario", u.replace(/[%_\\]/g, "\\$&"))
+        .maybeSingle()
+      const userId = cu?.id as string | undefined
+      if (!userId) return err(`No existe el usuario del CRM "${v.usuario}"`)
       const { data: otro } = await db.from("crm_vendedores_detalle").select("vendedor_id").eq("usuario_id", userId).neq("vendedor_id", vid).maybeSingle()
       if (otro) return err(`Ese usuario ya está vinculado al vendedor ${otro.vendedor_id}`)
       const { data: actual } = await db.from("crm_vendedores_detalle").select("usuario_id").eq("vendedor_id", vid).maybeSingle()

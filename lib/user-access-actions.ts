@@ -1,5 +1,17 @@
-import { createClient } from "@/lib/supabase-client"
-import { getCurrentEmpresaId } from "@/lib/user-context"
+"use server"
+
+// Accesos de los usuarios del CRM a empresas y owners.
+//
+// Se guardan en crm_usuarios (empresas_acceso, owners_acceso; scripts/209).
+// Antes este archivo escribia DESDE EL NAVEGADOR, con la clave anonima, en las
+// tablas de LIPgo perfil_acceso_empresas y perfil_acceso_owners: dar acceso en
+// el CRM cambiaba lo que el usuario veia en LIPgo. Ahora es una accion de
+// servidor, solo para administradores, y LIPgo no se toca. Los catalogos
+// (empresas, owners) se siguen leyendo de LIPgo, que es donde existen.
+
+import { getSupabaseAdmin, getSupabaseAdminAsSystem } from "@/lib/supabase-admin"
+import { checkModulePermission } from "@/lib/permissions-actions"
+import { getCurrentEmpresaId } from "@/lib/company-filter"
 
 export interface UserProfile {
   id: string
@@ -16,276 +28,87 @@ export interface Owner {
   nombre: string
 }
 
-export interface UserAccess {
-  usuario: string
-  profile_id: string
-  empresas: number[]
-}
+const MODULO_ADMIN = "Gestión de Usuarios"
+const esAdmin = () => checkModulePermission(MODULO_ADMIN)
 
 export async function getAllUsers(selectedEmpresaId?: number | null): Promise<UserProfile[]> {
-  try {
-    const supabase = await createClient()
-    // Usa la empresa seleccionada en el selector superior; si no hay,
-    // cae a la empresa del perfil del usuario actual.
-    const empresaId = selectedEmpresaId ?? (await getCurrentEmpresaId())
-
-    console.log("[v0] Fetching users from profiles table for empresa:", empresaId)
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, usuario")
-      .eq("empresa_id", empresaId)
-      .order("usuario", { ascending: true })
-
-    if (error) {
-      console.error("[v0] Error fetching users:", error)
-      return []
-    }
-
-    console.log("[v0] Fetched", data?.length || 0, "users for empresa", empresaId)
-    return data || []
-  } catch (error) {
-    console.error("[v0] Error in getAllUsers:", error)
-    return []
-  }
+  if (!(await esAdmin())) return []
+  const empresaId = Number(selectedEmpresaId ?? (await getCurrentEmpresaId()) ?? 1)
+  const db = await getSupabaseAdminAsSystem()
+  const { data } = await db
+    .from("crm_usuarios")
+    .select("id, usuario")
+    .or(`empresa_id.eq.${empresaId},empresas_acceso.cs.{${empresaId}}`)
+    .order("usuario", { ascending: true })
+  return (data ?? []) as UserProfile[]
 }
 
 export async function getAllEmpresas(): Promise<Empresa[]> {
-  try {
-    const supabase = await createClient()
+  if (!(await esAdmin())) return []
+  const db = await getSupabaseAdminAsSystem()
+  const { data } = await db.from("empresas_permisos").select("id, nombre").order("nombre", { ascending: true })
+  return (data ?? []) as Empresa[]
+}
 
-    console.log("[v0] Fetching all empresas from empresas_permisos table")
+export async function getAllOwners(): Promise<Owner[]> {
+  if (!(await esAdmin())) return []
+  const db = await getSupabaseAdminAsSystem()
+  const { data } = await db.from("owners").select("id, nombre").order("nombre", { ascending: true })
+  return (data ?? []) as Owner[]
+}
 
-    const { data, error } = await supabase
-      .from("empresas_permisos")
-      .select("id, nombre")
-      .order("nombre", { ascending: true })
+async function leerAccesos(userId: string): Promise<{ empresas: number[]; owners: string[] } | null> {
+  const db = await getSupabaseAdminAsSystem()
+  const { data } = await db.from("crm_usuarios").select("empresas_acceso, owners_acceso").eq("id", userId).maybeSingle()
+  if (!data) return null
+  return { empresas: (data.empresas_acceso ?? []) as number[], owners: (data.owners_acceso ?? []) as string[] }
+}
 
-    if (error) {
-      console.error("[v0] Error fetching empresas:", error)
-      return []
-    }
-
-    console.log("[v0] Fetched", data?.length || 0, "empresas from empresas_permisos")
-    return data || []
-  } catch (error) {
-    console.error("[v0] Error in getAllEmpresas:", error)
-    return []
-  }
+async function guardarAccesos(userId: string, cambios: { empresas_acceso?: number[]; owners_acceso?: string[] }) {
+  const db = await getSupabaseAdmin()
+  const { error } = await db
+    .from("crm_usuarios")
+    .update({ ...cambios, actualizado_en: new Date().toISOString() })
+    .eq("id", userId)
+  return error ? { success: false, error: error.message } : { success: true }
 }
 
 export async function getUserAccess(profileId: string): Promise<number[]> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Fetching user access for profile:", profileId)
-
-    const { data, error } = await supabase
-      .from("perfil_acceso_empresas")
-      .select("empresa_id")
-      .eq("profile_id", profileId)
-
-    if (error) {
-      console.error("[v0] Error fetching user access:", error)
-      return []
-    }
-
-    const empresaIds = data?.map((item: any) => item.empresa_id) || []
-    console.log("[v0] User access empresas:", empresaIds)
-    return empresaIds
-  } catch (error) {
-    console.error("[v0] Error in getUserAccess:", error)
-    return []
-  }
+  if (!(await esAdmin())) return []
+  return (await leerAccesos(profileId))?.empresas ?? []
 }
 
 export async function grantUserAccess(profileId: string, empresaId: number): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Granting access to profile", profileId, "for empresa", empresaId)
-
-    // Check if access already exists
-    const { data: existingAccess, error: checkError } = await supabase
-      .from("perfil_acceso_empresas")
-      .select("id")
-      .eq("profile_id", profileId)
-      .eq("empresa_id", empresaId)
-      .maybeSingle()
-
-    if (checkError) {
-      console.error("[v0] Error checking existing access:", checkError)
-      return { success: false, error: checkError.message }
-    }
-
-    if (existingAccess) {
-      console.log("[v0] Access already exists")
-      return { success: true }
-    }
-
-    // Create new access record
-    const { error: insertError } = await supabase.from("perfil_acceso_empresas").insert([
-      {
-        profile_id: profileId,
-        empresa_id: empresaId,
-      },
-    ])
-
-    if (insertError) {
-      console.error("[v0] Error granting access:", insertError)
-      return { success: false, error: insertError.message }
-    }
-
-    console.log("[v0] Access granted successfully")
-    return { success: true }
-  } catch (error) {
-    console.error("[v0] Error in grantUserAccess:", error)
-    return { success: false, error: "Error granting access" }
-  }
+  if (!(await esAdmin())) return { success: false, error: "No autorizado" }
+  const a = await leerAccesos(profileId)
+  if (!a) return { success: false, error: "Usuario no encontrado" }
+  if (a.empresas.includes(empresaId)) return { success: true }
+  return guardarAccesos(profileId, { empresas_acceso: [...a.empresas, empresaId] })
 }
 
 export async function revokeUserAccess(profileId: string, empresaId: number): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Revoking access from profile", profileId, "for empresa", empresaId)
-
-    const { error } = await supabase
-      .from("perfil_acceso_empresas")
-      .delete()
-      .eq("profile_id", profileId)
-      .eq("empresa_id", empresaId)
-
-    if (error) {
-      console.error("[v0] Error revoking access:", error)
-      return { success: false, error: error.message }
-    }
-
-    console.log("[v0] Access revoked successfully")
-    return { success: true }
-  } catch (error) {
-    console.error("[v0] Error in revokeUserAccess:", error)
-    return { success: false, error: "Error revoking access" }
-  }
-}
-
-// ==================== OWNERS FUNCTIONS ====================
-
-export async function getAllOwners(): Promise<Owner[]> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Fetching all owners from owners table")
-
-    const { data, error } = await supabase
-      .from("owners")
-      .select("id, nombre")
-      .order("nombre", { ascending: true })
-
-    if (error) {
-      console.error("[v0] Error fetching owners:", error)
-      return []
-    }
-
-    console.log("[v0] Fetched", data?.length || 0, "owners from owners table")
-    return data || []
-  } catch (error) {
-    console.error("[v0] Error in getAllOwners:", error)
-    return []
-  }
+  if (!(await esAdmin())) return { success: false, error: "No autorizado" }
+  const a = await leerAccesos(profileId)
+  if (!a) return { success: false, error: "Usuario no encontrado" }
+  return guardarAccesos(profileId, { empresas_acceso: a.empresas.filter((e) => e !== empresaId) })
 }
 
 export async function getUserOwnerAccess(profileId: string): Promise<string[]> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Fetching user owner access for profile:", profileId)
-
-    const { data, error } = await supabase
-      .from("perfil_acceso_owners")
-      .select("owner")
-      .eq("profile_id", profileId)
-
-    if (error) {
-      console.error("[v0] Error fetching user owner access:", error)
-      return []
-    }
-
-    const ownerNames = data?.map((item: any) => item.owner) || []
-    console.log("[v0] User access owners:", ownerNames)
-    return ownerNames
-  } catch (error) {
-    console.error("[v0] Error in getUserOwnerAccess:", error)
-    return []
-  }
+  if (!(await esAdmin())) return []
+  return (await leerAccesos(profileId))?.owners ?? []
 }
 
 export async function grantUserOwnerAccess(profileId: string, ownerName: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Granting owner access to profile", profileId, "for owner", ownerName)
-
-    // Check if access already exists
-    const { data: existingAccess, error: checkError } = await supabase
-      .from("perfil_acceso_owners")
-      .select("id")
-      .eq("profile_id", profileId)
-      .eq("owner", ownerName)
-      .maybeSingle()
-
-    if (checkError) {
-      console.error("[v0] Error checking existing owner access:", checkError)
-      return { success: false, error: checkError.message }
-    }
-
-    if (existingAccess) {
-      console.log("[v0] Owner access already exists")
-      return { success: true }
-    }
-
-    // Create new access record
-    const { error: insertError } = await supabase.from("perfil_acceso_owners").insert([
-      {
-        profile_id: profileId,
-        owner: ownerName,
-      },
-    ])
-
-    if (insertError) {
-      console.error("[v0] Error granting owner access:", insertError)
-      return { success: false, error: insertError.message }
-    }
-
-    console.log("[v0] Owner access granted successfully")
-    return { success: true }
-  } catch (error) {
-    console.error("[v0] Error in grantUserOwnerAccess:", error)
-    return { success: false, error: "Error granting owner access" }
-  }
+  if (!(await esAdmin())) return { success: false, error: "No autorizado" }
+  const a = await leerAccesos(profileId)
+  if (!a) return { success: false, error: "Usuario no encontrado" }
+  if (a.owners.includes(ownerName)) return { success: true }
+  return guardarAccesos(profileId, { owners_acceso: [...a.owners, ownerName] })
 }
 
 export async function revokeUserOwnerAccess(profileId: string, ownerName: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await createClient()
-
-    console.log("[v0] Revoking owner access from profile", profileId, "for owner", ownerName)
-
-    const { error } = await supabase
-      .from("perfil_acceso_owners")
-      .delete()
-      .eq("profile_id", profileId)
-      .eq("owner", ownerName)
-
-    if (error) {
-      console.error("[v0] Error revoking owner access:", error)
-      return { success: false, error: error.message }
-    }
-
-    console.log("[v0] Owner access revoked successfully")
-    return { success: true }
-  } catch (error) {
-    console.error("[v0] Error in revokeUserOwnerAccess:", error)
-    return { success: false, error: "Error revoking owner access" }
-  }
+  if (!(await esAdmin())) return { success: false, error: "No autorizado" }
+  const a = await leerAccesos(profileId)
+  if (!a) return { success: false, error: "Usuario no encontrado" }
+  return guardarAccesos(profileId, { owners_acceso: a.owners.filter((o) => o !== ownerName) })
 }

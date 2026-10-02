@@ -60,6 +60,10 @@ export interface BandejaAprobaciones {
   items: ItemAprobacion[]
   /** Que puede aprobar este usuario. */
   puede: { pedidos: Rol[]; recaudos: boolean; prospectos: boolean }
+  /** Pendientes que existen pero que este usuario NO ve por falta de permiso.
+   *  Sin este dato la bandeja decia "todo al dia" mientras un recaudo
+   *  esperaba: nadie sabia que faltaba el permiso. */
+  sinPermiso: { recaudos: number; prospectos: number }
   modo: ModoAprobacion
   horasAlerta: number
   /** Los pedidos completos, para abrir su diálogo de aprobación sin otra consulta. */
@@ -87,6 +91,19 @@ export async function getBandejaAprobaciones(empresaId = 1): Promise<ActionResul
       puede.recaudos ? buscarRecaudos(empresaId, { estado: "pendiente_aprobacion" }, 1, 200) : Promise.resolve(null),
       puede.prospectos ? buscarProspectosAprobacion("pendiente_aprobacion", empresaId) : Promise.resolve(null),
     ])
+
+    const sinPermiso = { recaudos: 0, prospectos: 0 }
+    if (!puede.recaudos || !puede.prospectos) {
+      const db = await getSupabaseAdmin()
+      const [rc, pr] = await Promise.all([
+        puede.recaudos ? Promise.resolve({ count: 0 }) :
+          db.from("crm_recaudos").select("id", { count: "exact", head: true }).eq("idempresa", empresaId).eq("estado", "pendiente_aprobacion"),
+        puede.prospectos ? Promise.resolve({ count: 0 }) :
+          db.from("crm_prospectos").select("id", { count: "exact", head: true }).eq("idempresa", empresaId).eq("estado_aprobacion", "pendiente_aprobacion"),
+      ])
+      sinPermiso.recaudos = rc.count ?? 0
+      sinPermiso.prospectos = pr.count ?? 0
+    }
 
     const items: ItemAprobacion[] = []
     const modo: ModoAprobacion = rPed?.success && rPed.data ? rPed.data.modo : "secuencial"
@@ -165,7 +182,7 @@ export async function getBandejaAprobaciones(empresaId = 1): Promise<ActionResul
     // Lo más antiguo primero: es lo que más se le debe a quien espera.
     items.sort((a, b) => (Date.parse(a.solicitadoEn ?? "") || 0) - (Date.parse(b.solicitadoEn ?? "") || 0))
 
-    return { success: true, data: { items, puede, modo, horasAlerta, pedidos, consultadoEn: new Date().toISOString() } }
+    return { success: true, data: { items, puede, sinPermiso, modo, horasAlerta, pedidos, consultadoEn: new Date().toISOString() } }
   } catch (err) {
     return { success: false, error: mensajeError(err) }
   }
