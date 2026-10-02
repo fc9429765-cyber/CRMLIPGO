@@ -129,26 +129,26 @@ export function ModulesView({ selectedGroup, onSelectModule, onBack }: ModulesVi
     <div className="space-y-5" style={{ "--tint": tinte } as CSSProperties}>
       <style>{`
         .mosaico{ position:relative; display:flex; flex-direction:column; border-radius:16px; background:var(--card,#fff);
-          border:1px solid #e7edf4; padding:14px 14px 12px; text-align:left; cursor:pointer; overflow:hidden; outline:none;
+          border:1px solid #ebe3d6; padding:14px 14px 12px; text-align:left; cursor:pointer; overflow:hidden; outline:none;
           transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
         .mosaico::before{ content:""; position:absolute; inset:0; border-radius:16px; padding:1.2px; pointer-events:none;
           background:linear-gradient(135deg, color-mix(in srgb, var(--tint) 68%, transparent), transparent 60%);
           -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
           opacity:0; transition:opacity .16s; }
         .mosaico:hover, .mosaico:focus-visible{ transform:translateY(-2px); border-color:transparent;
-          box-shadow:0 12px 26px color-mix(in srgb, var(--tint) 22%, transparent), 0 4px 10px rgba(20,42,68,.05); }
+          box-shadow:0 12px 26px color-mix(in srgb, var(--tint) 22%, transparent), 0 4px 10px rgba(26,23,21,.05); }
         .mosaico:hover::before, .mosaico:focus-visible::before{ opacity:1; }
         .mos-ico{ width:40px; height:40px; flex:none; border-radius:12px; display:flex; align-items:center; justify-content:center;
           background:color-mix(in srgb, var(--tint) 14%, #fff); color:var(--tint);
           box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--tint) 22%, transparent); transition:transform .16s, background .16s, color .16s; }
         .mosaico:hover .mos-ico{ transform:scale(1.06); color:#fff; background:linear-gradient(135deg, var(--tint), color-mix(in srgb, var(--tint) 62%, #000)); }
-        .mos-title{ font-size:14.5px; font-weight:800; line-height:1.15; color:#132a44; letter-spacing:-.01em; }
-        .mos-desc{ margin-top:3px; font-size:11.5px; line-height:1.35; color:#5f7390; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .mos-star{ flex:none; color:#c9d3df; border-radius:8px; padding:2px; transition:color .15s, transform .15s; }
+        .mos-title{ font-size:14.5px; font-weight:800; line-height:1.15; color:#1A1715; letter-spacing:-.01em; }
+        .mos-desc{ margin-top:3px; font-size:11.5px; line-height:1.35; color:#6b6258; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .mos-star{ flex:none; color:#d6ccbd; border-radius:8px; padding:2px; transition:color .15s, transform .15s; }
         .mos-star:hover{ color:#f59e0b; transform:scale(1.1); }
         .mos-star.is-fav{ color:#f59e0b; } .mos-star.is-fav svg{ fill:#f59e0b; }
-        .mos-tab{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; border:1px solid #e7edf4; background:#f6f9fc;
-          padding:3px 9px; font-size:11px; font-weight:600; color:#3d5168; }
+        .mos-tab{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; border:1px solid #ebe3d6; background:#faf6ef;
+          padding:3px 9px; font-size:11px; font-weight:600; color:#4a4038; }
         .mos-badge{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 9px 3px 7px; font-size:11px; font-weight:700; }
         .mos-badge.is-medio{ background:#fffbeb; color:#92400e; border:1px solid #fcd34d; }
         .mos-badge.is-alto{ background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }

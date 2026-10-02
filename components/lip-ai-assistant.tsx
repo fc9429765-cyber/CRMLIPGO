@@ -337,29 +337,29 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
       <style>{`
         @property --lipai-a{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
         .lipai{ position:relative; border-radius:20px; padding:1.6px;
-          background:conic-gradient(from var(--lipai-a), #2fd4b6, #6ee7d2, #1aa38f, #0b3b35, #2fd4b6);
+          background:conic-gradient(from var(--lipai-a), #D4A95E, #E3B88C, #7A5A24, #1A1715, #D4A95E);
           animation:lipai-spin 6s linear infinite;
-          box-shadow:0 0 34px rgba(47,212,182,.16), 0 16px 40px rgba(0,0,0,.28); }
+          box-shadow:0 0 34px rgba(212,169,94,.16), 0 16px 40px rgba(0,0,0,.28); }
         @keyframes lipai-spin{ to{ --lipai-a:360deg; } }
-        @media (prefers-reduced-motion:reduce){ .lipai{ animation:none; background:linear-gradient(120deg,#2fd4b6,#1aa38f); } }
+        @media (prefers-reduced-motion:reduce){ .lipai{ animation:none; background:linear-gradient(120deg,#D4A95E,#7A5A24); } }
         .lipai-in{ position:relative; overflow:hidden; border-radius:18.4px; padding:12px 14px 12px;
-          background:linear-gradient(180deg,#07332e,#052622); }
+          background:linear-gradient(180deg,#1A1715,#0B0B0C); }
         .lipai-in::after{ content:""; position:absolute; inset:0; pointer-events:none;
-          background:radial-gradient(70% 130% at 100% -10%, rgba(47,212,182,.20), transparent 55%); }
+          background:radial-gradient(70% 130% at 100% -10%, rgba(212,169,94,.20), transparent 55%); }
         .lipai-orb{ position:relative; width:38px; height:38px; flex:none; }
         .lipai-orb .core{ position:absolute; inset:6px; border-radius:50%;
-          background:radial-gradient(circle at 35% 30%, #c6fff2, #2fd4b6 55%, #0a6b5c); box-shadow:0 0 16px rgba(47,212,182,.8); }
-        .lipai-orb .halo{ position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(47,212,182,.5); animation:lipai-halo 2.6s ease-out infinite; }
+          background:radial-gradient(circle at 35% 30%, #F7F3EC, #D4A95E 55%, #7A5A24); box-shadow:0 0 16px rgba(212,169,94,.8); }
+        .lipai-orb .halo{ position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(212,169,94,.5); animation:lipai-halo 2.6s ease-out infinite; }
         @keyframes lipai-halo{ 0%{transform:scale(.7);opacity:.9} 100%{transform:scale(1.35);opacity:0} }
         @media (prefers-reduced-motion:reduce){ .lipai-orb .halo{ animation:none } }
-        .lipai-live{ width:6px; height:6px; border-radius:50%; background:#37f5a0; box-shadow:0 0 8px #37f5a0; animation:lipai-blink 1.8s ease-in-out infinite; }
+        .lipai-live{ width:6px; height:6px; border-radius:50%; background:#D4A95E; box-shadow:0 0 8px #D4A95E; animation:lipai-blink 1.8s ease-in-out infinite; }
         @keyframes lipai-blink{ 0%,100%{opacity:1} 50%{opacity:.35} }
-        .lipai-sug:hover{ background:rgba(47,212,182,.16) !important; border-color:rgba(47,212,182,.5) !important; }
-        .lipai-ta{ background:transparent; border:0; outline:none; resize:none; color:#eafaf6; font-size:14.5px; line-height:21px; width:100%; min-height:40px; max-height:150px; overflow-y:auto; }
-        .lipai-ta::placeholder{ color:#8fd9c8; }
+        .lipai-sug:hover{ background:rgba(212,169,94,.16) !important; border-color:rgba(212,169,94,.5) !important; }
+        .lipai-ta{ background:transparent; border:0; outline:none; resize:none; color:#F7F3EC; font-size:14.5px; line-height:21px; width:100%; min-height:40px; max-height:150px; overflow-y:auto; }
+        .lipai-ta::placeholder{ color:#bfae94; }
         .lipai-mic-on{ animation:lipai-mic 1.1s ease-in-out infinite; }
         @keyframes lipai-mic{ 0%,100%{box-shadow:0 0 0 0 rgba(255,90,90,.5)} 50%{box-shadow:0 0 0 6px rgba(255,90,90,0)} }
-        .lipai-thread::-webkit-scrollbar{ width:6px } .lipai-thread::-webkit-scrollbar-thumb{ background:rgba(120,230,200,.3); border-radius:6px }
+        .lipai-thread::-webkit-scrollbar{ width:6px } .lipai-thread::-webkit-scrollbar-thumb{ background:rgba(212,169,94,.3); border-radius:6px }
         /* Variante HERO (Inicio): LIPbot protagonista — más grande y con más aire. */
         .lipai-hero .lipai-in{ padding:18px 20px 16px; }
         .lipai-hero .lipai-orb{ width:52px; height:52px; }
@@ -381,8 +381,8 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
         .lipai-bar .lipai-orb-inline{ display:block; width:30px; height:30px; flex:none; }
         .lipai-bar .lipai-ta{ font-size:14.5px; }
         /* Badge ⌘K (solo barra colapsada) — afford del atajo command-palette. */
-        .lipai-kbd{ display:none; font:700 10px/1 ui-sans-serif,system-ui; color:#9fe0d3; flex:none;
-          background:rgba(4,42,36,.35); padding:4px 7px; border-radius:6px; border:1px solid rgba(150,240,220,.18); }
+        .lipai-kbd{ display:none; font:700 10px/1 ui-sans-serif,system-ui; color:#D4A95E; flex:none;
+          background:rgba(0,0,0,.35); padding:4px 7px; border-radius:6px; border:1px solid rgba(234,220,198,.18); }
         .lipai-bar:not(.lipai-open) .lipai-kbd{ display:inline-flex; }
       `}</style>
 
@@ -395,11 +395,11 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
           <div className="min-w-0">
             <div
               className={`${hero ? "text-[19px]" : "text-[15px]"} font-extrabold tracking-tight`}
-              style={{ color: "#eafaf6" }}
+              style={{ color: "#F7F3EC" }}
             >
               LIPbot
             </div>
-            <div className={`flex items-center gap-1.5 ${hero ? "text-[12.5px]" : "text-[11.5px]"}`} style={{ color: "#8fd9c8" }}>
+            <div className={`flex items-center gap-1.5 ${hero ? "text-[12.5px]" : "text-[11.5px]"}`} style={{ color: "#bfae94" }}>
               <span className="lipai-live" />
               Lee tu operación en vivo{empresaLabel ? ` · ${empresaLabel}` : ""}
             </div>
@@ -410,7 +410,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
                 onClick={cerrarChat}
                 title="Cerrar chat"
                 className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{ color: "#8fd9c8", background: "rgba(255,255,255,.06)" }}
+                style={{ color: "#bfae94", background: "rgba(255,255,255,.06)" }}
               >
                 <X className="h-[15px] w-[15px]" />
               </button>
@@ -420,12 +420,12 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
                 onClick={onOpen}
                 title="Abrir a pantalla completa"
                 className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{ color: "#8fd9c8", background: "rgba(255,255,255,.06)" }}
+                style={{ color: "#bfae94", background: "rgba(255,255,255,.06)" }}
               >
                 <Maximize2 className="h-[15px] w-[15px]" />
               </button>
             ) : (
-              <Sparkles className="h-4 w-4" style={{ color: "#6ee7d2" }} />
+              <Sparkles className="h-4 w-4" style={{ color: "#E3B88C" }} />
             )}
           </div>
         </div>
@@ -440,7 +440,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
               <InlineBubble key={m.id} message={m} />
             ))}
             {status === "submitted" && (
-              <div className="flex items-center gap-2 text-[12px]" style={{ color: "#9fe0d3" }}>
+              <div className="flex items-center gap-2 text-[12px]" style={{ color: "#D4A95E" }}>
                 <Bot className="h-3.5 w-3.5" /> Pensando…
               </div>
             )}
@@ -455,7 +455,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
         {/* Composer: (orbe en modo barra) + escribir + micrófono + Preguntar */}
         <div
           className="lipai-composer relative z-[2] mt-3.5 flex items-end gap-2.5 rounded-xl px-3 py-2"
-          style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(150,240,220,.2)" }}
+          style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(234,220,198,.2)" }}
           onClick={() => {
             if (isBar) taRef.current?.focus()
           }}
@@ -490,7 +490,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
             title={listening ? "Detener dictado" : "Hablarle a la IA"}
             className={`flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg ${listening ? "lipai-mic-on" : ""}`}
             style={{
-              color: listening ? "#fff" : "#8fd9c8",
+              color: listening ? "#fff" : "#bfae94",
               background: listening ? "#e5484d" : "rgba(255,255,255,.05)",
             }}
           >
@@ -504,7 +504,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
               onClick={() => stop()}
               title="Detener"
               className="flex h-[34px] flex-none items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-bold"
-              style={{ background: "rgba(255,255,255,.14)", color: "#eafaf6" }}
+              style={{ background: "rgba(255,255,255,.14)", color: "#F7F3EC" }}
             >
               <Square className="h-3.5 w-3.5 fill-current" /> Detener
             </button>
@@ -514,7 +514,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
               onClick={() => enviar(input)}
               disabled={!input.trim()}
               className="flex h-[34px] flex-none items-center gap-1.5 rounded-lg px-3.5 text-[12.5px] font-bold disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg,#6ee7d2,#2fd4b6)", color: "#04222a", boxShadow: "0 4px 14px rgba(47,212,182,.4)" }}
+              style={{ background: "linear-gradient(135deg,#E3B88C,#D4A95E)", color: "#0B0B0C", boxShadow: "0 4px 14px rgba(212,169,94,.4)" }}
             >
               <ArrowUp className="h-[15px] w-[15px]" /> Preguntar
             </button>
@@ -529,7 +529,7 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
                 key={s}
                 onClick={() => enviar(s)}
                 className="lipai-sug rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors"
-                style={{ color: "#cbe7f1", background: "rgba(255,255,255,.06)", border: "1px solid rgba(150,240,220,.16)" }}
+                style={{ color: "#EADCC6", background: "rgba(255,255,255,.06)", border: "1px solid rgba(234,220,198,.16)" }}
               >
                 {s}
               </button>
@@ -541,15 +541,15 @@ export function LipAiAssistant({ contextLabel, empresaLabel, onOpen, alertas, on
         {alertas && alertas.length > 0 && (
           <div
             className="lipai-alertas relative z-[2] mt-3.5 flex gap-3 rounded-xl px-3 py-3"
-            style={{ background: "rgba(47,212,182,.08)", border: "1px solid rgba(47,212,182,.22)" }}
+            style={{ background: "rgba(212,169,94,.08)", border: "1px solid rgba(212,169,94,.22)" }}
           >
             <span
               className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-lg"
-              style={{ background: "rgba(47,212,182,.18)", color: "#6ee7d2" }}
+              style={{ background: "rgba(212,169,94,.18)", color: "#E3B88C" }}
             >
               <Lightbulb className="h-[15px] w-[15px]" />
             </span>
-            <div className="min-w-0 text-[12.5px]" style={{ color: "#dcecf3" }}>
+            <div className="min-w-0 text-[12.5px]" style={{ color: "#EADCC6" }}>
               <b style={{ color: "#fff" }}>
                 Hoy detecté {alertas.length} cosa{alertas.length !== 1 ? "s" : ""} que requieren tu atención
               </b>{" "}
@@ -584,8 +584,8 @@ function InlineBubble({ message }: { message: UIMessage }) {
         className="max-w-[88%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-[13px] leading-relaxed"
         style={
           isUser
-            ? { background: "linear-gradient(135deg,#6ee7d2,#2fd4b6)", color: "#04222a" }
-            : { background: "rgba(255,255,255,.08)", color: "#eafaf6", border: "1px solid rgba(150,240,220,.15)" }
+            ? { background: "linear-gradient(135deg,#E3B88C,#D4A95E)", color: "#0B0B0C" }
+            : { background: "rgba(255,255,255,.08)", color: "#F7F3EC", border: "1px solid rgba(234,220,198,.15)" }
         }
       >
         {text || "…"}
@@ -606,7 +606,7 @@ function getMessageText(message: UIMessage): string {
 const SEV: Record<AtencionItem["sev"], { background: string; color: string }> = {
   crit: { background: "rgba(255,122,114,.16)", color: "#ff7a72" },
   warn: { background: "rgba(255,207,94,.16)", color: "#ffcf5e" },
-  info: { background: "rgba(47,212,182,.16)", color: "#6ee7d2" },
+  info: { background: "rgba(212,169,94,.16)", color: "#E3B88C" },
 }
 
 // Export por defecto para que dynamic() del registry pueda cargarlo.

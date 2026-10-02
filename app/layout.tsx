@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Geist_Mono, Montserrat } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
 import { AuthProvider } from "@/components/auth-provider"
@@ -9,11 +9,12 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
+// Montserrat: la tipografía de texto en pantalla del manual de marca Indupan 2026.
+const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat", display: "swap" })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const viewport: Viewport = {
-  themeColor: "#0f7b6f",
+  themeColor: "#0B0B0C",
 }
 
 export const metadata: Metadata = {
@@ -58,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" className={montserrat.variable}>
       <body className={`font-sans antialiased`}>
         {/* Captura temprana del evento de instalacion (puede dispararse antes
             de montar React); el banner PWA lo consume desde window.__lipgoBIP. */}

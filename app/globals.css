@@ -4,80 +4,83 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Paleta LIPgo 2026: teal #0f7b6f como color principal, fondo #F4F7FC, tarjetas blancas, texto #343a40, bordes #dee2e6. El verde oscuro de la barra lateral vive en components/sidebar.tsx. */
-  --background: #F4F7FC;
-  --foreground: #343a40;
+  /* Paleta Indupan 2026 (Manual de Marca, estilo "Lujo claro" en la app y "Lujo" en el menú):
+     fondo blanco harina, superficies blancas, texto negro carbón, acento dorado profundo y
+     ROJO INDUPAN SOLO PARA LA LLAMADA A LA ACCIÓN (botón principal). Rojo y dorado no se tocan.
+     El negro del menú lateral vive en components/sidebar.tsx. */
+  --background: #F7F3EC;
+  --foreground: #1A1715;
   --card: #ffffff;
-  --card-foreground: #343a40;
+  --card-foreground: #1A1715;
   --popover: #ffffff;
-  --popover-foreground: #343a40;
-  --primary: #0f7b6f;
+  --popover-foreground: #1A1715;
+  --primary: #E62D30;
   --primary-foreground: #ffffff;
-  --secondary: #6c757d;
-  --secondary-foreground: #ffffff;
-  --muted: #e9ecef;
-  --muted-foreground: #6c757d;
-  --accent: #e6f3f1;
-  --accent-foreground: #0b3d37;
-  --destructive: #dc3545;
+  --secondary: #5c534b;
+  --secondary-foreground: #F7F3EC;
+  --muted: #EFE8DC;
+  --muted-foreground: #6b6258;
+  --accent: #F3EADB;
+  --accent-foreground: #3d2e14;
+  --destructive: #A6192E;
   --destructive-foreground: #ffffff;
-  --border: #dee2e6;
-  --input: #dee2e6;
-  --ring: #0f7b6f;
-  --chart-1: #0f7b6f;
-  --chart-2: #14a088;
-  --chart-3: #198754;
-  --chart-4: #ffc107;
-  --chart-5: #fd7e14;
+  --border: #E4D9C6;
+  --input: #E4D9C6;
+  --ring: #7A5A24;
+  --chart-1: #7A5A24;
+  --chart-2: #6E1614;
+  --chart-3: #3f6b3a;
+  --chart-4: #D4A95E;
+  --chart-5: #ED8B00;
   --radius: 0.75rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #343a40;
-  --sidebar-primary: #0f7b6f;
+  --sidebar-foreground: #1A1715;
+  --sidebar-primary: #E62D30;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e9ecef;
-  --sidebar-accent-foreground: #343a40;
-  --sidebar-border: #dee2e6;
-  --sidebar-ring: #0f7b6f;
+  --sidebar-accent: #EFE8DC;
+  --sidebar-accent-foreground: #1A1715;
+  --sidebar-border: #E4D9C6;
+  --sidebar-ring: #7A5A24;
 }
 
 .dark {
-  /* Dark mode variants maintaining LiPGO brand consistency */
-  --background: #1a1d20;
-  --foreground: #e9ecef;
-  --card: #212529;
-  --card-foreground: #e9ecef;
-  --popover: #212529;
-  --popover-foreground: #e9ecef;
-  --primary: #1aa38f;
+  /* Modo oscuro = estilo "Lujo" del manual: negro carbón, negro elevado, dorado como detalle. */
+  --background: #0B0B0C;
+  --foreground: #F7F3EC;
+  --card: #1A1715;
+  --card-foreground: #F7F3EC;
+  --popover: #1A1715;
+  --popover-foreground: #F7F3EC;
+  --primary: #E62D30;
   --primary-foreground: #ffffff;
-  --secondary: #495057;
-  --secondary-foreground: #e9ecef;
-  --muted: #343a40;
-  --muted-foreground: #adb5bd;
-  --accent: #164a42;
-  --accent-foreground: #eafaf6;
-  --destructive: #dc3545;
+  --secondary: #3a322c;
+  --secondary-foreground: #F7F3EC;
+  --muted: #24201d;
+  --muted-foreground: #bfb3a2;
+  --accent: #2c2622;
+  --accent-foreground: #F7F3EC;
+  --destructive: #A6192E;
   --destructive-foreground: #ffffff;
-  --border: #495057;
-  --input: #495057;
-  --ring: #2fd4b6;
-  --chart-1: #2fd4b6;
-  --chart-2: #14a088;
-  --chart-3: #198754;
-  --chart-4: #ffc107;
-  --chart-5: #fd7e14;
-  --sidebar: #212529;
-  --sidebar-foreground: #e9ecef;
-  --sidebar-primary: #2fd4b6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #343a40;
-  --sidebar-accent-foreground: #e9ecef;
-  --sidebar-border: #495057;
-  --sidebar-ring: #2fd4b6;
+  --border: #3a322c;
+  --input: #3a322c;
+  --ring: #D4A95E;
+  --chart-1: #D4A95E;
+  --chart-2: #E3B88C;
+  --chart-3: #9cc48f;
+  --chart-4: #EADCC6;
+  --chart-5: #FF8F1C;
+  --sidebar: #1A1715;
+  --sidebar-foreground: #F7F3EC;
+  --sidebar-primary: #D4A95E;
+  --sidebar-primary-foreground: #0B0B0C;
+  --sidebar-accent: #2c2622;
+  --sidebar-accent-foreground: #F7F3EC;
+  --sidebar-border: #3a322c;
+  --sidebar-ring: #D4A95E;
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
+  --font-sans: var(--font-montserrat), 'Montserrat', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);

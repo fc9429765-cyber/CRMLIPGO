@@ -299,18 +299,18 @@ export function Sidebar({
   // aclarados para que se lean sobre el fondo oscuro del menu: que cartera sea
   // verde aqui y alla es lo que permite reconocer el area sin leer su nombre.
   const GROUP_TINT: Record<string, string> = {
-    inicio: "#3b9eff",        // azul
-    prospectos: "#a855f7",    // violeta
-    ventas: "#fb923c",        // naranja
-    clientes: "#22d3ee",      // cian
-    cartera: "#34d399",       // verde
-    inteligencia: "#f472b6",  // magenta
-    configuracion: "#94a3b8", // gris
+    inicio: "#D4A95E",        // dorado
+    prospectos: "#E3B88C",    // caramelo
+    ventas: "#FF8F1C",        // naranja
+    clientes: "#8fa3ff",      // azul reflex aclarado
+    cartera: "#9cc48f",       // verde trigo aclarado
+    inteligencia: "#f08bbd",  // magenta aclarado
+    configuracion: "#a39a8f", // gris cálido
   }
 
-  // Color del héroe = tinte del área activa (o cian de marca en Inicio). Alimenta
+  // Color del héroe = tinte del área activa (o dorado de marca en Inicio). Alimenta
   // rutas, hub, glow y el actor temático vía la variable CSS --hero.
-  const heroAccent = (selectedGroup ? GROUP_TINT[selectedGroup] : undefined) ?? "#2fd4b6"
+  const heroAccent = (selectedGroup ? GROUP_TINT[selectedGroup] : undefined) ?? "#D4A95E"
 
   // Lista plana de todos los modulos visibles, con su grupo, etiqueta del
   // grupo, subgrupo (si aplica) e icono. Sirve para el buscador.
@@ -371,32 +371,32 @@ export function Sidebar({
           permisos ni rutas. */}
       <style>{`
         .lipgo-sb{
-          --card:#0b3b35; --card-foreground:#ffffff; --foreground:#ffffff;
-          --background:#0d4740; --muted-foreground:#cfe8e2;
-          --accent:#155a51; --accent-foreground:#ffffff;
-          --border:#1d5e55; --input:#1d5e55; --primary:#2fd4b6; --ring:#2fd4b6;
-          background-image:linear-gradient(180deg,#0b3b35,#072c27);
+          --card:#1A1715; --card-foreground:#ffffff; --foreground:#ffffff;
+          --background:#24201d; --muted-foreground:#cbbfae;
+          --accent:#2c2622; --accent-foreground:#ffffff;
+          --border:#3a322c; --input:#3a322c; --primary:#D4A95E; --ring:#D4A95E;
+          background-image:linear-gradient(180deg,#1A1715,#0B0B0C);
         }
         /* Letras del menú en BLANCO con alto contraste (peticion de diseño). */
         .lipgo-sb nav button span{ color:#ffffff; }
-        .lipgo-sb nav button{ color:#eaf4ff; }
-        .lipgo-sb .bg-primary{ box-shadow:0 0 12px rgba(47,212,182,.65); }
+        .lipgo-sb nav button{ color:#F7F3EC; }
+        .lipgo-sb .bg-primary{ box-shadow:0 0 12px rgba(212,169,94,.65); }
         .lipgo-hero-bg{ background:
-          radial-gradient(120% 90% at 82% 0%, color-mix(in srgb, var(--hero,#2fd4b6) 34%, transparent), transparent 58%),
-          radial-gradient(95% 85% at 0% 100%, rgba(20,110,95,.42), transparent 55%);
+          radial-gradient(120% 90% at 82% 0%, color-mix(in srgb, var(--hero,#D4A95E) 34%, transparent), transparent 58%),
+          radial-gradient(95% 85% at 0% 100%, rgba(122,90,36,.42), transparent 55%);
           transition: background .5s ease; }
-        .lipgo-tag{ font:600 10px/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#8fe8d2; display:flex; align-items:center; gap:6px; }
-        .lipgo-live{ width:6px; height:6px; border-radius:50%; background:#37f5a0; box-shadow:0 0 8px #37f5a0; }
-        .lipgo-logo-mark{ width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#0a4f46,#2fd4b6); display:flex; align-items:center; justify-content:center; font:800 15px/1 sans-serif; color:#fff; box-shadow:0 0 14px rgba(47,212,182,.5); }
+        .lipgo-tag{ font:600 10px/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#D4A95E; display:flex; align-items:center; gap:6px; }
+        .lipgo-live{ width:6px; height:6px; border-radius:50%; background:#D4A95E; box-shadow:0 0 8px #D4A95E; }
+        .lipgo-logo-mark{ width:30px; height:30px; border-radius:9px; background:#E62D30; display:flex; align-items:center; justify-content:center; font:800 15px/1 sans-serif; color:#fff; }
         .lipgo-word{ font:800 19px/1 sans-serif; letter-spacing:-.02em; color:#fff; }
-        .lipgo-tile{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:8px; background:#124a43; border:1px solid #1f6359; flex:none; }
-        .lipgo-route{ stroke: color-mix(in srgb, var(--hero,#7fe0cc) 58%, transparent); stroke-width:1.6; fill:none; stroke-linecap:round; stroke-dasharray:5 6; transition: stroke .5s ease; }
-        .lipgo-route.b{ stroke: color-mix(in srgb, var(--hero,#7fe0cc) 26%, transparent); }
-        .lipgo-node{ fill:#cff7ef; } .lipgo-node.hub{ fill: var(--hero,#2fd4b6); transition: fill .5s ease; }
+        .lipgo-tile{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:8px; background:#24201d; border:1px solid #3a322c; flex:none; }
+        .lipgo-route{ stroke: color-mix(in srgb, var(--hero,#E3B88C) 58%, transparent); stroke-width:1.6; fill:none; stroke-linecap:round; stroke-dasharray:5 6; transition: stroke .5s ease; }
+        .lipgo-route.b{ stroke: color-mix(in srgb, var(--hero,#E3B88C) 26%, transparent); }
+        .lipgo-node{ fill:#EADCC6; } .lipgo-node.hub{ fill: var(--hero,#D4A95E); transition: fill .5s ease; }
         /* Actor temático del héroe (adaptativo por módulo). El color viene de --hero. */
-        .hero-light{ fill:#dff7f1; } .hero-accent{ fill: var(--hero,#2fd4b6); }
-        .hero-lightstroke{ stroke:#dff7f1; } .hero-accent-stroke{ stroke: var(--hero,#2fd4b6); }
-        .lipgo-sect{ font:700 9.5px/1 sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#6f9a92; padding:13px 14px 5px; }
+        .hero-light{ fill:#F7F3EC; } .hero-accent{ fill: var(--hero,#D4A95E); }
+        .hero-lightstroke{ stroke:#F7F3EC; } .hero-accent-stroke{ stroke: var(--hero,#D4A95E); }
+        .lipgo-sect{ font:700 9.5px/1 sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#8a7f72; padding:13px 14px 5px; }
         @media (prefers-reduced-motion: no-preference){
           .lipgo-route{ animation: lipgo-flow 1.1s linear infinite; }
           .lipgo-actor{ animation: lipgo-run 6s ease-in-out infinite, lipgo-fadein .5s ease-out; }
@@ -571,7 +571,7 @@ export function Sidebar({
                   {isGroupActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                   )}
-                  <span className="lipgo-tile" style={{ color: "#9fcfc6" }}>
+                  <span className="lipgo-tile" style={{ color: "#cbbfae" }}>
                     <Icon className="h-[15px] w-[15px]" />
                   </span>
                   {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
@@ -606,7 +606,7 @@ export function Sidebar({
                     {isGroupActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                     )}
-                    <span className="lipgo-tile" style={{ color: GROUP_TINT[item.key!] ?? "#9fcfc6" }}>
+                    <span className="lipgo-tile" style={{ color: GROUP_TINT[item.key!] ?? "#cbbfae" }}>
                       <Icon className="h-[15px] w-[15px]" />
                     </span>
                     {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}

@@ -47,7 +47,7 @@ function Ajuste({ puntos, enfocar }: { puntos: PuntoCliente[]; enfocar: PuntoCli
 function Pin({ p, abierto, onAccion }: { p: PuntoCliente; abierto: boolean; onAccion: (accion: string, p: PuntoCliente) => void }) {
   const ref = useRef(null)
   useEffect(() => { if (abierto) setTimeout(() => ref.current?.openPopup(), 700) }, [abierto])
-  const icono = useMemo(() => iconoPin(p.tipo === "cliente" ? (p.bloqueado ? "#dc2626" : "#0c6b61") : "#16a34a", p.tipo === "cliente" ? 34 : 28), [p.tipo, p.bloqueado])
+  const icono = useMemo(() => iconoPin(p.tipo === "cliente" ? (p.bloqueado ? "#E62D30" : "#6E1614") : "#B07A2A", p.tipo === "cliente" ? 34 : 28), [p.tipo, p.bloqueado])
   const comoLlegar = `https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`
   return (
     <Marker ref={ref} position={[p.latitud, p.longitud]} icon={icono}>
@@ -55,7 +55,7 @@ function Pin({ p, abierto, onAccion }: { p: PuntoCliente; abierto: boolean; onAc
         <div style={{ fontSize: 12, lineHeight: 1.35 }}>
           <div style={{ fontWeight: 600, fontSize: 13 }}>{p.nombre}</div>
           <div style={{ color: "#64748b" }}>{p.tipo === "sucursal" ? "Sucursal" : "Cliente"}{p.detalle ? ` · ${p.detalle}` : ""}</div>
-          {p.bloqueado && <div style={{ color: "#dc2626", fontWeight: 600, marginTop: 2 }}>Bloqueado por cartera</div>}
+          {p.bloqueado && <div style={{ color: "#E62D30", fontWeight: 600, marginTop: 2 }}>Bloqueado por cartera</div>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
             {p.clienteId && <Boton onClick={() => onAccion("cuenta", p)}>Cuenta 360</Boton>}
             {p.clienteId && <Boton onClick={() => onAccion("venta", p)}>Nueva venta</Boton>}
@@ -69,7 +69,7 @@ function Pin({ p, abierto, onAccion }: { p: PuntoCliente; abierto: boolean; onAc
 
 const estiloBoton = (primario = false) => ({
   display: "inline-block", padding: "4px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
-  border: "1px solid " + (primario ? "#0c6b61" : "#cbd5e1"), background: primario ? "#0c6b61" : "#fff", color: primario ? "#fff" : "#0f172a", textDecoration: "none",
+  border: "1px solid " + (primario ? "#1A1715" : "#cbd5e1"), background: primario ? "#1A1715" : "#fff", color: primario ? "#fff" : "#0f172a", textDecoration: "none",
 })
 function Boton({ children, onClick }) {
   return <button type="button" onClick={onClick} style={estiloBoton()}>{children}</button>

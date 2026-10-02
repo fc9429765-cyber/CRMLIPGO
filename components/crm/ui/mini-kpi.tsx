@@ -88,7 +88,7 @@ export function BarraMeta({
         <div
           className={cn(
             "h-full rounded-full transition-[width] duration-500",
-            porcentaje >= 100 ? "bg-emerald-500" : "bg-[#0f7b6f]",
+            porcentaje >= 100 ? "bg-emerald-500" : "bg-[#D4A95E]",
           )}
           style={{ width: `${ancho}%` }}
         />

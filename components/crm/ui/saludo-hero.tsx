@@ -47,22 +47,22 @@ export function SaludoHero({
     <>
       <style>{`
         .crm-home-hero{
-          position:relative; overflow:hidden; border-radius:18px; color:#eafaf6;
+          position:relative; overflow:hidden; border-radius:18px; color:#F7F3EC;
           background:
-            radial-gradient(80% 130% at 92% -20%, rgba(47,212,182,.30), transparent 55%),
-            radial-gradient(70% 120% at -5% 120%, rgba(20,140,120,.32), transparent 55%),
-            linear-gradient(120deg,#06332e,#0a4a42 55%,#0f6b60);
-          border:1px solid rgba(120,230,200,.15);
+            radial-gradient(80% 130% at 92% -20%, rgba(212,169,94,.16), transparent 55%),
+            radial-gradient(70% 120% at -5% 120%, rgba(110,22,20,.30), transparent 55%),
+            linear-gradient(120deg,#0B0B0C,#1A1715);
+          border:1px solid rgba(212,169,94,.35);
         }
       `}</style>
 
       <div className="crm-home-hero px-4 py-2.5">
         <div className="relative z-10 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
           <h1 className="text-base font-extrabold tracking-tight sm:text-lg">
-            <span aria-hidden="true">👋</span> {info.saludo}
+            {info.saludo}
             {primerNombre ? `, ${primerNombre}` : ""}
           </h1>
-          <span className="text-xs sm:text-sm" style={{ color: "#9fe0d3" }}>
+          <span className="text-xs sm:text-sm" style={{ color: "#D4A95E" }}>
             {info.fecha}
             {empresa ? ` · ${empresa}` : ""}
           </span>

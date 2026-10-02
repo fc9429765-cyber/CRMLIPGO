@@ -26,7 +26,7 @@ L.Icon.Default.mergeOptions({
 export interface Punto { latitud: number; longitud: number }
 
 /** Pin del CRM: el color de marca, con sombra, para distinguirlo del punto azul "yo". */
-export function iconoPin(color = "#0c6b61", tamano = 34) {
+export function iconoPin(color = "#6E1614", tamano = 34) {
   return L.divIcon({
     className: "",
     html: `<svg width="${tamano}" height="${tamano}" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.45))">

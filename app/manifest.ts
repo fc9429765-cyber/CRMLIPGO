@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#F4F7FC",
-    theme_color: "#0f7b6f",
+    background_color: "#F7F3EC",
+    theme_color: "#0B0B0C",
     icons: [
       { src: "/lipgo-icon.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/lipgo-icon.png", sizes: "512x512", type: "image/png", purpose: "any" },

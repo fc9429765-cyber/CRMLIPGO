@@ -23,16 +23,16 @@ interface ModuleCardsProps {
   pendientes?: Record<string, PendienteModulo>
 }
 
-/** Color por área. Los mismos tonos de la paleta de LIPgo, reasignados a las
- *  áreas del CRM. También los usan el portal de cada área y los recientes. */
+/** Color por área. Tonos del manual de marca Indupan 2026, oscurecidos donde
+ *  hace falta para que el texto blanco se lea. También los usan el portal de cada área y los recientes. */
 export const TINTE_AREA: Record<string, string> = {
-  inicio: "#4f63c4",
-  prospectos: "#7b57c9",
-  ventas: "#c56a2a",
-  clientes: "#1f8fb0",
-  cartera: "#2f9b64",
-  inteligencia: "#c65893",
-  configuracion: "#6b7683",
+  inicio: "#7A5A24",       // dorado profundo
+  prospectos: "#6E1614",   // vinotinto
+  ventas: "#B5630A",       // naranja 144 oscurecido (al pasar lleva texto blanco)
+  clientes: "#001489",     // reflex blue
+  cartera: "#3f6b3a",      // verde trigo
+  inteligencia: "#9E0159", // magenta oscurecido
+  configuracion: "#5c534b",
 }
 
 function contarModulos(group: (typeof groups)[number]): number {
@@ -48,7 +48,7 @@ export function ModuleCards({ onSelectGroup, pendientes = {} }: ModuleCardsProps
       <style>{`
         .apps-grid{ --r:18px; }
         .app-tile{ position:relative; display:flex; flex-direction:column; gap:12px; border-radius:var(--r);
-          background:var(--card,#fff); border:1px solid #e7edf4; padding:16px; text-align:left; cursor:pointer; overflow:hidden;
+          background:var(--card,#fff); border:1px solid #ebe3d6; padding:16px; text-align:left; cursor:pointer; overflow:hidden;
           transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
         .app-tile::after{ content:""; position:absolute; top:-40%; right:-30%; width:140px; height:140px; border-radius:50%;
           background:radial-gradient(closest-side, color-mix(in srgb, var(--tint) 28%, transparent), transparent);
@@ -58,7 +58,7 @@ export function ModuleCards({ onSelectGroup, pendientes = {} }: ModuleCardsProps
           -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
           opacity:0; transition:opacity .2s; }
         .app-tile:hover, .app-tile:focus-visible{ transform:translateY(-3px); border-color:transparent; outline:none;
-          box-shadow:0 18px 38px color-mix(in srgb, var(--tint) 26%, transparent), 0 6px 14px rgba(20,42,68,.06); }
+          box-shadow:0 18px 38px color-mix(in srgb, var(--tint) 26%, transparent), 0 6px 14px rgba(26,23,21,.06); }
         .app-tile:hover::before, .app-tile:focus-visible::before{ opacity:1; }
         .app-tile:hover::after{ opacity:.6; transform:scale(1.15); }
         .app-ico{ position:relative; z-index:1; width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center;
@@ -67,9 +67,9 @@ export function ModuleCards({ onSelectGroup, pendientes = {} }: ModuleCardsProps
         .app-tile:hover .app-ico{ transform:scale(1.06) rotate(-3deg); color:#fff;
           background:linear-gradient(135deg, var(--tint), color-mix(in srgb, var(--tint) 62%, #000));
           box-shadow:0 10px 22px color-mix(in srgb, var(--tint) 42%, transparent); }
-        .app-name{ position:relative; z-index:1; font-size:15px; font-weight:800; line-height:1.15; color:#132a44; letter-spacing:-.01em; }
+        .app-name{ position:relative; z-index:1; font-size:15px; font-weight:800; line-height:1.15; color:#1A1715; letter-spacing:-.01em; }
         .app-foot{ position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:22px; }
-        .app-count{ font-size:11.5px; color:#7387a0; font-weight:500; }
+        .app-count{ font-size:11.5px; color:#7a6f63; font-weight:500; }
         .app-pend{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 9px 3px 7px; font-size:11px; font-weight:700;
           background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; max-width:100%; }
         .app-pend.is-medio{ background:#fffbeb; color:#92400e; border-color:#fcd34d; }

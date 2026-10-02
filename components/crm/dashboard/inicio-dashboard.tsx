@@ -222,7 +222,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
           headerRight={
             <button
               onClick={() => onSelectModule?.("Embudo de Ventas")}
-              className="flex items-center gap-0.5 text-xs font-medium text-[#0c6b61] hover:underline"
+              className="flex items-center gap-0.5 text-xs font-medium text-[#7A5A24] hover:underline"
             >
               Ver <ArrowRight className="h-3 w-3" />
             </button>
@@ -242,7 +242,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
                       <span className="flex items-center gap-1.5">
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: e.color ?? "#0f7b6f" }}
+                          style={{ backgroundColor: e.color ?? "#D4A95E" }}
                         />
                         {e.nombre}
                         <Badge variant="secondary" className="h-4 px-1 text-[10px]">
@@ -254,7 +254,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, backgroundColor: e.color ?? "#0f7b6f" }}
+                        style={{ width: `${pct}%`, backgroundColor: e.color ?? "#D4A95E" }}
                       />
                     </div>
                   </div>
@@ -274,7 +274,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
           headerRight={
             <button
               onClick={() => onSelectModule?.("Vendedores")}
-              className="flex items-center gap-0.5 text-xs font-medium text-[#0c6b61] hover:underline"
+              className="flex items-center gap-0.5 text-xs font-medium text-[#7A5A24] hover:underline"
             >
               Ver <ArrowRight className="h-3 w-3" />
             </button>
@@ -362,7 +362,7 @@ function Pendiente({
   const estilo =
     tono === "danger" ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
       : tono === "warning" ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-        : "border-[#0f7b6f]/40 bg-[#0f7b6f]/10 text-[#0c6b61] hover:bg-[#0f7b6f]/20"
+        : "border-[#D4A95E]/60 bg-[#D4A95E]/15 text-[#7A5A24] hover:bg-[#D4A95E]/25"
 
   return (
     <button

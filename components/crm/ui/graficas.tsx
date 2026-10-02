@@ -21,9 +21,9 @@ import {
   RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 
-/** Paleta de marca. El primer color es el cian de LIPgo. */
+/** Paleta de marca Indupan (manual 2026): dorado profundo primero; rojo y dorado nunca seguidos. */
 export const COLORES = [
-  "#0c6b61", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#0ea5e9", "#14b8a6",
+  "#7A5A24", "#6E1614", "#D4A95E", "#1A1715", "#ED8B00", "#CDA077", "#E62D30",
 ] as const
 
 const money = (n: number) =>

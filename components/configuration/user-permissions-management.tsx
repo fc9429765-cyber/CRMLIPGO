@@ -573,7 +573,7 @@ export function UserPermissionsManagement() {
                 -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
                 -webkit-mask-composite:xor; mask-composite:exclude; opacity:0; transition:opacity .2s; }
               .ulist-row:hover{ transform:translateY(-2px); border-color:transparent;
-                box-shadow:0 14px 30px color-mix(in srgb, var(--primary) 24%, transparent), 0 4px 10px rgba(20,42,68,.05); }
+                box-shadow:0 14px 30px color-mix(in srgb, var(--primary) 24%, transparent), 0 4px 10px rgba(26,23,21,.05); }
               .ulist-row:hover::before{ opacity:1; }
               .ulist-row:hover::after{ opacity:.75; transform:scale(1.12); }
               .ulist-row.is-active{ background:color-mix(in srgb, var(--primary) 10%, var(--card));

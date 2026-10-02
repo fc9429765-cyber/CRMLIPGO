@@ -421,7 +421,7 @@ export function ImportarPanel() {
                     className={cn(
                       "rounded-lg border bg-card p-3 text-left transition-colors",
                       activo
-                        ? "border-[#0f7b6f] ring-2 ring-[#0f7b6f]/30"
+                        ? "border-[#D4A95E] ring-2 ring-[#D4A95E]/40"
                         : "hover:border-primary/40 hover:bg-muted/30",
                       !!resultado && !activo && "cursor-not-allowed opacity-50",
                     )}
@@ -443,7 +443,7 @@ export function ImportarPanel() {
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px]",
-                        c.obligatorio ? "border-[#0f7b6f]/60 bg-[#0f7b6f]/10 font-medium" : "bg-muted/40",
+                        c.obligatorio ? "border-[#D4A95E]/70 bg-[#D4A95E]/15 font-medium" : "bg-muted/40",
                       )}
                     >
                       {c.etiqueta}
@@ -640,7 +640,7 @@ function Paso({ numero, titulo, children }: { numero: number; titulo: string; ch
     <Card className="border-border/60 shadow-none">
       <CardContent className="p-4">
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0f7b6f] text-xs font-semibold text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1715] text-xs font-semibold text-[#D4A95E]">
             {numero}
           </span>
           <h2 className="text-sm font-semibold">{titulo}</h2>
