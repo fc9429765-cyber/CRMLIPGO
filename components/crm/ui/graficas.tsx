@@ -23,7 +23,7 @@ import {
 
 /** Paleta de marca. El primer color es el cian de LIPgo. */
 export const COLORES = [
-  "#0aa1c4", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#0ea5e9", "#14b8a6",
+  "#0c6b61", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#0ea5e9", "#14b8a6",
 ] as const
 
 const money = (n: number) =>

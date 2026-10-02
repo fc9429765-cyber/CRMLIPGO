@@ -47,12 +47,12 @@ export function SaludoHero({
     <>
       <style>{`
         .crm-home-hero{
-          position:relative; overflow:hidden; border-radius:18px; color:#eaf6fa;
+          position:relative; overflow:hidden; border-radius:18px; color:#eafaf6;
           background:
-            radial-gradient(80% 130% at 92% -20%, rgba(0,194,220,.30), transparent 55%),
-            radial-gradient(70% 120% at -5% 120%, rgba(95,120,225,.32), transparent 55%),
-            linear-gradient(120deg,#0a2545,#0b2f57 55%,#0e4a72);
-          border:1px solid rgba(120,190,230,.15);
+            radial-gradient(80% 130% at 92% -20%, rgba(47,212,182,.30), transparent 55%),
+            radial-gradient(70% 120% at -5% 120%, rgba(20,140,120,.32), transparent 55%),
+            linear-gradient(120deg,#06332e,#0a4a42 55%,#0f6b60);
+          border:1px solid rgba(120,230,200,.15);
         }
       `}</style>
 
@@ -62,7 +62,7 @@ export function SaludoHero({
             <span aria-hidden="true">👋</span> {info.saludo}
             {primerNombre ? `, ${primerNombre}` : ""}
           </h1>
-          <span className="text-xs sm:text-sm" style={{ color: "#9fd4e6" }}>
+          <span className="text-xs sm:text-sm" style={{ color: "#9fe0d3" }}>
             {info.fecha}
             {empresa ? ` · ${empresa}` : ""}
           </span>

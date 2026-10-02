@@ -47,7 +47,7 @@ function Ajuste({ puntos, enfocar }: { puntos: PuntoCliente[]; enfocar: PuntoCli
 function Pin({ p, abierto, onAccion }: { p: PuntoCliente; abierto: boolean; onAccion: (accion: string, p: PuntoCliente) => void }) {
   const ref = useRef(null)
   useEffect(() => { if (abierto) setTimeout(() => ref.current?.openPopup(), 700) }, [abierto])
-  const icono = useMemo(() => iconoPin(p.tipo === "cliente" ? (p.bloqueado ? "#dc2626" : "#0aa1c4") : "#16a34a", p.tipo === "cliente" ? 34 : 28), [p.tipo, p.bloqueado])
+  const icono = useMemo(() => iconoPin(p.tipo === "cliente" ? (p.bloqueado ? "#dc2626" : "#0c6b61") : "#16a34a", p.tipo === "cliente" ? 34 : 28), [p.tipo, p.bloqueado])
   const comoLlegar = `https://www.google.com/maps/dir/?api=1&destination=${p.latitud},${p.longitud}`
   return (
     <Marker ref={ref} position={[p.latitud, p.longitud]} icon={icono}>
@@ -69,7 +69,7 @@ function Pin({ p, abierto, onAccion }: { p: PuntoCliente; abierto: boolean; onAc
 
 const estiloBoton = (primario = false) => ({
   display: "inline-block", padding: "4px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
-  border: "1px solid " + (primario ? "#0aa1c4" : "#cbd5e1"), background: primario ? "#0aa1c4" : "#fff", color: primario ? "#fff" : "#0f172a", textDecoration: "none",
+  border: "1px solid " + (primario ? "#0c6b61" : "#cbd5e1"), background: primario ? "#0c6b61" : "#fff", color: primario ? "#fff" : "#0f172a", textDecoration: "none",
 })
 function Boton({ children, onClick }) {
   return <button type="button" onClick={onClick} style={estiloBoton()}>{children}</button>

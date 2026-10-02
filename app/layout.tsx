@@ -13,7 +13,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const viewport: Viewport = {
-  themeColor: "#5bc0de",
+  themeColor: "#0f7b6f",
 }
 
 export const metadata: Metadata = {

@@ -56,7 +56,7 @@ export function SubNav<T extends string>({
                 "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2",
                 "text-xs font-medium transition-all duration-200 md:text-sm",
                 activo
-                  ? "border-[#5bc0de] bg-[#5bc0de] text-white shadow-[0_8px_24px_-8px_rgba(91,192,222,0.55)]"
+                  ? "border-[#0f7b6f] bg-[#0f7b6f] text-white shadow-[0_8px_24px_-8px_rgba(15,123,111,0.55)]"
                   : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >

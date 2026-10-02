@@ -22,7 +22,6 @@ import { KpiCompacto } from "@/components/crm/ui/kpi-compacto"
 import { PanelCard } from "@/components/crm/ui/panel-card"
 import { GraficaArea } from "@/components/crm/ui/graficas"
 import { Aparece, ListaEscalonada, ElementoLista } from "@/components/crm/ui/movimiento"
-import { EncabezadoEjecutivo } from "@/components/crm/ui/encabezado-ejecutivo"
 import { SaludoHero } from "@/components/crm/ui/saludo-hero"
 import { ModuleCards } from "@/components/module-cards"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +30,9 @@ import { toast } from "@/hooks/use-toast"
 import type { GroupKey } from "@/lib/dashboard-data"
 import type { LucideIcon } from "lucide-react"
 import { RadarPanel } from "@/components/crm/dashboard/radar-panel"
+import { LipAiAssistant } from "@/components/lip-ai-assistant"
+import { ContinuarReciente } from "@/components/continuar-reciente"
+import { pendientesPorArea, useRadar } from "@/lib/radar-cliente"
 
 const REFRESCO_MS = 60_000
 
@@ -47,6 +49,9 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
   const [cargando, setCargando] = useState(true)
   const [refrescando, setRefrescando] = useState(false)
   const montado = useRef(true)
+  // Pendientes por área para el punto rojo de las tarjetas (misma consulta que el radar).
+  const { datos: radar } = useRadar(empresaId)
+  const pendientesArea = pendientesPorArea(radar)
 
   const cargar = useCallback(
     async (silencioso: boolean) => {
@@ -93,16 +98,46 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
           que al entrar se reconozca la misma casa. */}
       <SaludoHero nombre={profile?.nombre ?? undefined} empresa={selectedEmpresaNombre ?? undefined} />
 
-      <EncabezadoEjecutivo
-        titulo="Centro de Gestión Comercial"
-        refrescando={refrescando}
-        onRefrescar={() => cargar(true)}
-      />
+      {/* ===== El asistente, protagonista del Inicio (como LIPbot en LIPgo):
+          consulta datos reales, lleva al módulo y ejecuta acciones, todo
+          gobernado por los permisos del usuario. ===== */}
+      <section>
+        <div className="mb-2.5">
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-primary">
+            <span aria-hidden="true">✨</span> La inteligencia del CRM
+          </span>
+          <p className="mt-1 max-w-[62ch] text-[13px] text-muted-foreground">
+            Pregunta en lenguaje natural: te da <span className="font-semibold text-foreground">datos exactos</span> de clientes,
+            pedidos y cartera, te <span className="font-semibold text-foreground">lleva al módulo</span> y{" "}
+            <span className="font-semibold text-foreground">ejecuta acciones</span> por ti — todo gobernado por tus permisos.
+          </p>
+        </div>
+        <LipAiAssistant
+          variant="bar"
+          empresaLabel={selectedEmpresaNombre}
+          onNavigate={(m) => onSelectModule?.(m)}
+          onOpenGroup={(k) => onSelectGroup(k as GroupKey)}
+          onOpen={() => onSelectModule?.("Asistente IA")}
+        />
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {[["🔎", "Consulta", "datos reales"], ["🧭", "Navega", "a cualquier módulo"], ["⚡", "Ejecuta", "acciones por ti"]].map(([e, b, t]) => (
+            <span key={b} className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-2.5 py-1 text-[11.5px] font-semibold text-foreground">
+              <span aria-hidden="true">{e}</span> <span><b className="font-extrabold">{b}</b> {t}</span>
+            </span>
+          ))}
+        </div>
+      </section>
 
       {/* Lo que pide acción HOY, antes que las cifras del mes: el radar
           reúne despachos, cartera, aprobaciones y agenda, y lleva a cada
           asunto con los datos puestos. */}
       <RadarPanel />
+
+      {/* Recientes y favoritos del usuario */}
+      <ContinuarReciente onNavigate={(m) => onSelectModule?.(m)} />
+
+      {/* Las áreas: para entrar. El punto rojo dice dónde hay pendientes. */}
+      <ModuleCards onSelectGroup={onSelectGroup} onSelectModule={onSelectModule} pendientes={pendientesArea} />
 
       {/* Indicadores compactos tambien en el tablero.
           La tarjeta ejecutiva de LIPgo mide unos 145px de alto: es la del
@@ -187,7 +222,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
           headerRight={
             <button
               onClick={() => onSelectModule?.("Embudo de Ventas")}
-              className="flex items-center gap-0.5 text-xs font-medium text-[#0aa1c4] hover:underline"
+              className="flex items-center gap-0.5 text-xs font-medium text-[#0c6b61] hover:underline"
             >
               Ver <ArrowRight className="h-3 w-3" />
             </button>
@@ -207,7 +242,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
                       <span className="flex items-center gap-1.5">
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: e.color ?? "#5bc0de" }}
+                          style={{ backgroundColor: e.color ?? "#0f7b6f" }}
                         />
                         {e.nombre}
                         <Badge variant="secondary" className="h-4 px-1 text-[10px]">
@@ -219,7 +254,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, backgroundColor: e.color ?? "#5bc0de" }}
+                        style={{ width: `${pct}%`, backgroundColor: e.color ?? "#0f7b6f" }}
                       />
                     </div>
                   </div>
@@ -239,7 +274,7 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
           headerRight={
             <button
               onClick={() => onSelectModule?.("Vendedores")}
-              className="flex items-center gap-0.5 text-xs font-medium text-[#0aa1c4] hover:underline"
+              className="flex items-center gap-0.5 text-xs font-medium text-[#0c6b61] hover:underline"
             >
               Ver <ArrowRight className="h-3 w-3" />
             </button>
@@ -312,11 +347,6 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
         </PanelCard>
       </div>
 
-      {/* Las áreas, debajo del tablero: primero se ve cómo va el negocio y
-          luego se navega. */}
-      <div className="pt-1">
-        <ModuleCards onSelectGroup={onSelectGroup} onSelectModule={onSelectModule} />
-      </div>
     </div>
   )
 }
@@ -332,7 +362,7 @@ function Pendiente({
   const estilo =
     tono === "danger" ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
       : tono === "warning" ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-        : "border-[#5bc0de]/40 bg-[#5bc0de]/10 text-[#0aa1c4] hover:bg-[#5bc0de]/20"
+        : "border-[#0f7b6f]/40 bg-[#0f7b6f]/10 text-[#0c6b61] hover:bg-[#0f7b6f]/20"
 
   return (
     <button

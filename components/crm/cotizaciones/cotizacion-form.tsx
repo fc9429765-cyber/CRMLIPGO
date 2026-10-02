@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { FormularioVenta, type EstadoEnvio } from "./formulario-venta"
+import { BandaFormulario } from "@/components/crm/ui/banda-formulario"
 
 export function CotizacionForm({
   empresaId, usuario, onGuardado, tipoVenta = "cotizacion", inicial,
@@ -62,15 +63,15 @@ export function CotizacionForm({
 
   return (
     <DialogContent className="max-h-[92vh] w-full max-w-4xl overflow-y-auto pb-0">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-[var(--chart-1)]" aria-hidden="true" />
-          {tipoVenta === "directa" ? "Nueva venta" : "Nueva cotización"}
-        </DialogTitle>
-        <DialogDescription className="text-xs">
-          Totales, impuestos y precio de lista los confirma el servidor al guardar.
-        </DialogDescription>
+      <DialogHeader className="sr-only">
+        <DialogTitle>{tipoVenta === "directa" ? "Nueva venta" : "Nueva cotización"}</DialogTitle>
+        <DialogDescription>Totales, impuestos y precio de lista los confirma el servidor al guardar.</DialogDescription>
       </DialogHeader>
+      <BandaFormulario
+        enDialogo
+        titulo={<span className="flex items-center gap-2"><FileText className="h-5 w-5" aria-hidden="true" />{tipoVenta === "directa" ? "Nueva venta" : "Nueva cotización"}</span>}
+        subtitulo="Totales, impuestos y precio de lista los confirma el servidor al guardar."
+      />
 
       <FormularioVenta
         empresaId={empresaId}

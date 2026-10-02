@@ -310,7 +310,7 @@ export function Sidebar({
 
   // Color del héroe = tinte del área activa (o cian de marca en Inicio). Alimenta
   // rutas, hub, glow y el actor temático vía la variable CSS --hero.
-  const heroAccent = (selectedGroup ? GROUP_TINT[selectedGroup] : undefined) ?? "#00c2dc"
+  const heroAccent = (selectedGroup ? GROUP_TINT[selectedGroup] : undefined) ?? "#2fd4b6"
 
   // Lista plana de todos los modulos visibles, con su grupo, etiqueta del
   // grupo, subgrupo (si aplica) e icono. Sirve para el buscador.
@@ -371,32 +371,32 @@ export function Sidebar({
           permisos ni rutas. */}
       <style>{`
         .lipgo-sb{
-          --card:#0b2138; --card-foreground:#ffffff; --foreground:#ffffff;
-          --background:#0e2b46; --muted-foreground:#d6e6f5;
-          --accent:#1c4a72; --accent-foreground:#ffffff;
-          --border:#1b3350; --input:#1b3350; --primary:#00c2dc; --ring:#00c2dc;
-          background-image:linear-gradient(180deg,#0b2138,#071a30);
+          --card:#0b3b35; --card-foreground:#ffffff; --foreground:#ffffff;
+          --background:#0d4740; --muted-foreground:#cfe8e2;
+          --accent:#155a51; --accent-foreground:#ffffff;
+          --border:#1d5e55; --input:#1d5e55; --primary:#2fd4b6; --ring:#2fd4b6;
+          background-image:linear-gradient(180deg,#0b3b35,#072c27);
         }
         /* Letras del menú en BLANCO con alto contraste (peticion de diseño). */
         .lipgo-sb nav button span{ color:#ffffff; }
         .lipgo-sb nav button{ color:#eaf4ff; }
-        .lipgo-sb .bg-primary{ box-shadow:0 0 12px rgba(0,194,220,.65); }
+        .lipgo-sb .bg-primary{ box-shadow:0 0 12px rgba(47,212,182,.65); }
         .lipgo-hero-bg{ background:
-          radial-gradient(120% 90% at 82% 0%, color-mix(in srgb, var(--hero,#00c2dc) 34%, transparent), transparent 58%),
-          radial-gradient(95% 85% at 0% 100%, rgba(28,86,150,.42), transparent 55%);
+          radial-gradient(120% 90% at 82% 0%, color-mix(in srgb, var(--hero,#2fd4b6) 34%, transparent), transparent 58%),
+          radial-gradient(95% 85% at 0% 100%, rgba(20,110,95,.42), transparent 55%);
           transition: background .5s ease; }
-        .lipgo-tag{ font:600 10px/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#7fe6f4; display:flex; align-items:center; gap:6px; }
+        .lipgo-tag{ font:600 10px/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#8fe8d2; display:flex; align-items:center; gap:6px; }
         .lipgo-live{ width:6px; height:6px; border-radius:50%; background:#37f5a0; box-shadow:0 0 8px #37f5a0; }
-        .lipgo-logo-mark{ width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#0a3f6e,#00c2dc); display:flex; align-items:center; justify-content:center; font:800 15px/1 sans-serif; color:#fff; box-shadow:0 0 14px rgba(0,194,220,.5); }
+        .lipgo-logo-mark{ width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#0a4f46,#2fd4b6); display:flex; align-items:center; justify-content:center; font:800 15px/1 sans-serif; color:#fff; box-shadow:0 0 14px rgba(47,212,182,.5); }
         .lipgo-word{ font:800 19px/1 sans-serif; letter-spacing:-.02em; color:#fff; }
-        .lipgo-tile{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:8px; background:#123650; border:1px solid #22456a; flex:none; }
-        .lipgo-route{ stroke: color-mix(in srgb, var(--hero,#82c8eb) 58%, transparent); stroke-width:1.6; fill:none; stroke-linecap:round; stroke-dasharray:5 6; transition: stroke .5s ease; }
-        .lipgo-route.b{ stroke: color-mix(in srgb, var(--hero,#82c8eb) 26%, transparent); }
-        .lipgo-node{ fill:#cfeff8; } .lipgo-node.hub{ fill: var(--hero,#00c2dc); transition: fill .5s ease; }
+        .lipgo-tile{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:8px; background:#124a43; border:1px solid #1f6359; flex:none; }
+        .lipgo-route{ stroke: color-mix(in srgb, var(--hero,#7fe0cc) 58%, transparent); stroke-width:1.6; fill:none; stroke-linecap:round; stroke-dasharray:5 6; transition: stroke .5s ease; }
+        .lipgo-route.b{ stroke: color-mix(in srgb, var(--hero,#7fe0cc) 26%, transparent); }
+        .lipgo-node{ fill:#cff7ef; } .lipgo-node.hub{ fill: var(--hero,#2fd4b6); transition: fill .5s ease; }
         /* Actor temático del héroe (adaptativo por módulo). El color viene de --hero. */
-        .hero-light{ fill:#dff2fb; } .hero-accent{ fill: var(--hero,#00c2dc); }
-        .hero-lightstroke{ stroke:#dff2fb; } .hero-accent-stroke{ stroke: var(--hero,#00c2dc); }
-        .lipgo-sect{ font:700 9.5px/1 sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#5f7c96; padding:13px 14px 5px; }
+        .hero-light{ fill:#dff7f1; } .hero-accent{ fill: var(--hero,#2fd4b6); }
+        .hero-lightstroke{ stroke:#dff7f1; } .hero-accent-stroke{ stroke: var(--hero,#2fd4b6); }
+        .lipgo-sect{ font:700 9.5px/1 sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#6f9a92; padding:13px 14px 5px; }
         @media (prefers-reduced-motion: no-preference){
           .lipgo-route{ animation: lipgo-flow 1.1s linear infinite; }
           .lipgo-actor{ animation: lipgo-run 6s ease-in-out infinite, lipgo-fadein .5s ease-out; }
@@ -466,11 +466,11 @@ export function Sidebar({
             >
               <span className="flex items-center gap-2.5">
                 <span className="lipgo-logo-mark">L</span>
-                <span className="lipgo-word">LIPGO CRM</span>
+                <span className="lipgo-word">LIPGO</span>
               </span>
               <span className="lipgo-tag">
                 <span className="lipgo-live" />
-                Gestión comercial
+                CRM · Gestión comercial
               </span>
             </button>
           )}
@@ -571,7 +571,7 @@ export function Sidebar({
                   {isGroupActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                   )}
-                  <span className="lipgo-tile" style={{ color: "#9fb6cc" }}>
+                  <span className="lipgo-tile" style={{ color: "#9fcfc6" }}>
                     <Icon className="h-[15px] w-[15px]" />
                   </span>
                   {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
@@ -606,7 +606,7 @@ export function Sidebar({
                     {isGroupActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                     )}
-                    <span className="lipgo-tile" style={{ color: GROUP_TINT[item.key!] ?? "#9fb6cc" }}>
+                    <span className="lipgo-tile" style={{ color: GROUP_TINT[item.key!] ?? "#9fcfc6" }}>
                       <Icon className="h-[15px] w-[15px]" />
                     </span>
                     {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}

@@ -128,7 +128,7 @@ export function MapaClientesPanel({ enfocarClienteId }: { enfocarClienteId?: num
             {vendedores.filter((v) => v.activo).map((v) => <SelectItem key={v.idvendedor} value={String(v.idvendedor)}>{v.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-1.5 text-xs"><Switch checked={verClientes} onCheckedChange={setVerClientes} /> <Users className="h-3.5 w-3.5 text-[#0aa1c4]" /> Clientes</label>
+        <label className="flex items-center gap-1.5 text-xs"><Switch checked={verClientes} onCheckedChange={setVerClientes} /> <Users className="h-3.5 w-3.5 text-[#0c6b61]" /> Clientes</label>
         <label className="flex items-center gap-1.5 text-xs"><Switch checked={verSucursales} onCheckedChange={setVerSucursales} /> <Building2 className="h-3.5 w-3.5 text-emerald-600" /> Sucursales</label>
         <Button variant="outline" size="sm" className="ml-auto h-8 text-xs" onClick={ubicarme} disabled={ubicando}>
           {ubicando ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="mr-1.5 h-3.5 w-3.5" />} Mi ubicación

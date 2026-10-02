@@ -35,6 +35,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { useIntencion } from "@/lib/crm-navegacion"
+import { BandaFormulario } from "@/components/crm/ui/banda-formulario"
 
 interface LineaInteres {
   id: string
@@ -348,9 +349,10 @@ function FormularioProspecto({
 
   return (
     <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-      <DialogHeader>
+      <DialogHeader className="sr-only">
         <DialogTitle>Nuevo prospecto</DialogTitle>
       </DialogHeader>
+      <BandaFormulario enDialogo titulo="Nuevo prospecto" subtitulo="Datos de contacto, ubicación en el mapa y productos de interés. Los campos marcados con (*) son obligatorios." />
 
       <div className="space-y-5 py-2">
         {/* La ubicación va arriba: se pide el permiso apenas se abre, para que

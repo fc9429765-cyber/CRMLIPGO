@@ -62,15 +62,15 @@ export function LipbotDock({
       <style>{`
         .lipbot-fab{ position:fixed; right:18px; bottom:84px; z-index:60; display:flex; align-items:center; gap:9px;
           padding:11px 16px 11px 12px; border-radius:999px; color:#04222a; font-weight:800; font-size:13.5px;
-          background:linear-gradient(135deg,#3fe0ee,#00c2dc); border:0; cursor:pointer;
-          box-shadow:0 10px 30px rgba(0,194,220,.45), 0 4px 14px rgba(0,0,0,.3); transition:transform .15s, box-shadow .15s; }
-        .lipbot-fab:hover{ transform:translateY(-2px); box-shadow:0 14px 36px rgba(0,194,220,.6), 0 6px 16px rgba(0,0,0,.35); }
+          background:linear-gradient(135deg,#6ee7d2,#2fd4b6); border:0; cursor:pointer;
+          box-shadow:0 10px 30px rgba(47,212,182,.45), 0 4px 14px rgba(0,0,0,.3); transition:transform .15s, box-shadow .15s; }
+        .lipbot-fab:hover{ transform:translateY(-2px); box-shadow:0 14px 36px rgba(47,212,182,.6), 0 6px 16px rgba(0,0,0,.35); }
         .lipbot-fab .em{ font-size:16px; line-height:1; filter:drop-shadow(0 1px 1px rgba(0,0,0,.15)); }
         .lipbot-fab .kbd{ font-size:10px; font-weight:700; letter-spacing:.02em; opacity:.72; background:rgba(4,34,42,.18); padding:2px 6px; border-radius:6px; }
         /* Pulso para llamar la atención (respeta reduce-motion) */
-        .lipbot-fab::before{ content:""; position:absolute; inset:0; border-radius:999px; box-shadow:0 0 0 0 rgba(0,194,220,.55);
+        .lipbot-fab::before{ content:""; position:absolute; inset:0; border-radius:999px; box-shadow:0 0 0 0 rgba(47,212,182,.55);
           animation:lipbot-pulse 2.4s ease-out infinite; pointer-events:none; }
-        @keyframes lipbot-pulse{ 0%{ box-shadow:0 0 0 0 rgba(0,194,220,.5) } 70%{ box-shadow:0 0 0 14px rgba(0,194,220,0) } 100%{ box-shadow:0 0 0 0 rgba(0,194,220,0) } }
+        @keyframes lipbot-pulse{ 0%{ box-shadow:0 0 0 0 rgba(47,212,182,.5) } 70%{ box-shadow:0 0 0 14px rgba(47,212,182,0) } 100%{ box-shadow:0 0 0 0 rgba(47,212,182,0) } }
         .lipbot-badge{ position:absolute; top:-6px; right:-4px; min-width:20px; height:20px; padding:0 5px; border-radius:999px;
           background:#ff5a5f; color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;
           border:2px solid #eafcff; box-shadow:0 2px 8px rgba(0,0,0,.35); }

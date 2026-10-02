@@ -26,7 +26,7 @@ interface PanelCardProps {
 /** Mismos tintes que el KPI card, para que un panel y una tarjeta del mismo
  *  color se lean como parte de lo mismo. */
 const ICONO: Record<PanelAccent, string> = {
-  primary: "bg-[#5bc0de]/15 text-[#0aa1c4] border-[#5bc0de]/40",
+  primary: "bg-[#0f7b6f]/15 text-[#0c6b61] border-[#0f7b6f]/40",
   success: "bg-emerald-100 text-emerald-700 border-emerald-300",
   warning: "bg-amber-100 text-amber-700 border-amber-300",
   danger: "bg-rose-100 text-rose-700 border-rose-300",

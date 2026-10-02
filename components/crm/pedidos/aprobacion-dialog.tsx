@@ -551,7 +551,7 @@ function Historial({ pedidoId, empresaId }: { pedidoId: number; empresaId: numbe
               const rolEt = typeof e.datos?.rol_etiqueta === "string" ? e.datos.rol_etiqueta : null
               return (
                 <li key={e.id} className="flex gap-2 text-xs">
-                  <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", TONO_PUNTO[e.tipo] ?? "bg-[#5bc0de]")} />
+                  <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", TONO_PUNTO[e.tipo] ?? "bg-[#0f7b6f]")} />
                   <div className="min-w-0">
                     <p>
                       <span className="font-medium">

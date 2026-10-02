@@ -28,6 +28,7 @@ import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useIntencion } from "@/lib/crm-navegacion"
+import { BandaFormulario } from "@/components/crm/ui/banda-formulario"
 
 type Vista = "registrar" | "mios"
 type FiltroEstado = "todos" | EstadoRecaudo
@@ -134,7 +135,9 @@ export function RecaudosPanel() {
       />
 
       {vista === "registrar" ? (
-        <Card className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-2xl">
+        <BandaFormulario titulo="Registrar pago" subtitulo="Foto del comprobante, datos del pago y reparto propuesto entre las facturas del cliente." />
+        <Card className="rounded-t-none border-t-0">
           <CardContent className="pt-5">
             {hecho ? (
               <div className="space-y-4 py-4 text-center">
@@ -165,6 +168,7 @@ export function RecaudosPanel() {
             )}
           </CardContent>
         </Card>
+        </div>
       ) : (
         <>
           <TiraKpi>

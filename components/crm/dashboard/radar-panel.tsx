@@ -16,7 +16,8 @@ import {
   Stamp, Truck, Wallet, type LucideIcon,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { getRadar, type Radar as RadarDatos, type RadarGrupo, type RadarItem, type TonoRadar } from "@/lib/crm-logistica-actions"
+import type { RadarGrupo, RadarItem, TonoRadar } from "@/lib/crm-logistica-actions"
+import { useRadar } from "@/lib/radar-cliente"
 import { irA, irAModulo, type Intencion } from "@/lib/crm-navegacion"
 import { ListaEscalonada, ElementoLista } from "@/components/crm/ui/movimiento"
 import { Button } from "@/components/ui/button"
@@ -41,18 +42,11 @@ function abrir(i: RadarItem, g: RadarGrupo) {
 export function RadarPanel({ className }: { className?: string }) {
   const { selectedEmpresaId } = useAuth()
   const empresaId = selectedEmpresaId ?? 1
-  const [datos, setDatos] = useState<RadarDatos | null>(null)
-  const [cargando, setCargando] = useState(true)
   const [abierto, setAbierto] = useState<string | null>(null)
+  // Una sola consulta compartida con las tarjetas de áreas y el portal (lib/radar-cliente).
+  const { datos, cargando, recargar } = useRadar(empresaId)
+  const cargar = useCallback(() => recargar(true), [recargar])
 
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    const r = await getRadar(empresaId)
-    if (r.success && r.data) setDatos(r.data)
-    setCargando(false)
-  }, [empresaId])
-
-  useEffect(() => { cargar() }, [cargar])
   useEffect(() => {
     const t = setInterval(() => { if (document.visibilityState === "visible") cargar() }, 120_000)
     return () => clearInterval(t)

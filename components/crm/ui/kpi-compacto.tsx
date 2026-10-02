@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 export type TonoKpi = "primary" | "success" | "warning" | "danger" | "neutral"
 
 const TONO: Record<TonoKpi, { iconoBg: string; iconoFg: string; valor: string }> = {
-  primary: { iconoBg: "bg-[#5bc0de]/15", iconoFg: "text-[#0aa1c4]", valor: "text-foreground" },
+  primary: { iconoBg: "bg-[#0f7b6f]/15", iconoFg: "text-[#0c6b61]", valor: "text-foreground" },
   success: { iconoBg: "bg-emerald-100", iconoFg: "text-emerald-700", valor: "text-emerald-700" },
   warning: { iconoBg: "bg-amber-100", iconoFg: "text-amber-700", valor: "text-foreground" },
   danger: { iconoBg: "bg-rose-100", iconoFg: "text-rose-700", valor: "text-rose-700" },

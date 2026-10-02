@@ -51,8 +51,8 @@ const ACENTO: Record<
   { iconoBg: string; iconoFg: string; iconoBorde: string; anillo: string; glow: string }
 > = {
   primary: {
-    iconoBg: "bg-[#5bc0de]/15", iconoFg: "text-[#0aa1c4]", iconoBorde: "border-[#5bc0de]/40",
-    anillo: "hover:ring-[#5bc0de]/30", glow: "before:bg-[#5bc0de]/20",
+    iconoBg: "bg-[#0f7b6f]/15", iconoFg: "text-[#0c6b61]", iconoBorde: "border-[#0f7b6f]/40",
+    anillo: "hover:ring-[#0f7b6f]/30", glow: "before:bg-[#0f7b6f]/20",
   },
   success: {
     iconoBg: "bg-emerald-100", iconoFg: "text-emerald-700", iconoBorde: "border-emerald-300",

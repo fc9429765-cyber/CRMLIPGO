@@ -67,9 +67,9 @@ export function EncabezadoEjecutivo({ titulo, subtitulo, refrescando, onRefresca
       {/* En móvil el grupo desplaza en horizontal en vez de apilarse: ocupa
           una línea y no empuja el contenido del tablero hacia abajo. */}
       <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:thin] md:flex-wrap">
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#5bc0de]/40 bg-[#5bc0de]/10 px-2.5 py-1.5">
-          <Radio className="h-3.5 w-3.5 text-[#0aa1c4]" aria-hidden="true" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#0aa1c4]">
+        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#0f7b6f]/40 bg-[#0f7b6f]/10 px-2.5 py-1.5">
+          <Radio className="h-3.5 w-3.5 text-[#0c6b61]" aria-hidden="true" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#0c6b61]">
             Tiempo real
           </span>
         </div>

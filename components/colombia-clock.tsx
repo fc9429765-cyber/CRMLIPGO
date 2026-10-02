@@ -36,7 +36,7 @@ export function ColombiaClock() {
   if (!dateTime) return null
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md border border-border">
+    <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-foreground bg-card px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-border shadow-sm">
       <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
       <span className="font-medium whitespace-nowrap">{dateTime}</span>
     </div>

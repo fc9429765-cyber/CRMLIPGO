@@ -26,6 +26,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
 import { FormularioVenta, type EstadoEnvio } from "./formulario-venta"
 import { useIntencion } from "@/lib/crm-navegacion"
+import { BandaFormulario } from "@/components/crm/ui/banda-formulario"
 
 interface Props {
   onNavigate?: (modulo: string) => void
@@ -95,15 +96,10 @@ export function VentaDirecta({ onNavigate }: Props) {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center gap-2.5">
-        <span className="rounded-lg bg-[var(--chart-1)]/10 p-2 text-[var(--chart-1)]">
-          <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h1 className="text-lg font-semibold leading-tight">Nueva venta</h1>
-          <p className="text-sm text-muted-foreground">Para cuando el cliente ya decidió y no hace falta cotizar</p>
-        </div>
-      </header>
+      <BandaFormulario
+        titulo="Nueva venta"
+        subtitulo="Elige el cliente, revisa su cartera y arma el pedido. Los campos marcados con (*) son obligatorios."
+      />
 
       <Alert>
         <Info className="h-4 w-4" />

@@ -237,7 +237,19 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 
 ---
 
-## 8. Antes de empezar a usarlo
+## 8. Cómo se ve
+
+El CRM sigue el rediseño 2026 de LIPgo, para que las dos aplicaciones se reconozcan como la misma casa:
+
+- **Paleta:** barra lateral verde oscuro, teal (#0f7b6f) como color principal de botones y bandas, tarjetas blancas con esquinas redondeadas y el icono de cada área en una caja tintada de su color.
+- **Inicio:** saludo del día, el **asistente como protagonista** (una barra de pregunta que consulta datos, lleva al módulo y ejecuta acciones), el radar de lo que necesita atención, **"Continuar donde ibas"** (recientes y favoritos) y las **Áreas** con un punto rojo donde hay pendientes.
+- **Portal de cada área:** cada pantalla es un mosaico que dice para qué sirve, sus capacidades como chips, cuántos pendientes tiene hoy y una estrella para marcarla como favorita.
+- **Formularios de captura** (Nueva venta, Registrar pago, cotización, prospecto): banda verde de encabezado, como en LIPgo. Los listados llevan el título con icono.
+- **Barra superior:** reloj, empresa, usuario, buscador Ctrl K y alertas.
+
+---
+
+## 9. Antes de empezar a usarlo
 
 ### Imprescindible 🔴
 
@@ -260,7 +272,7 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 
 ---
 
-## 9. Lo que no está hecho
+## 10. Lo que no está hecho
 
 - **Portal de cliente:** solo la evaluación, como pedía el requerimiento. Alcance, riesgos, pasarela PSE sugerida y esfuerzo en `docs/EVALUACION_PORTAL_CLIENTE.md`.
 - **Modo sin conexión para el vendedor en carretera:** pregunta abierta del requerimiento; no se construyó.
@@ -272,7 +284,7 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 
 ---
 
-## 10. Qué revisar antes de dar por bueno el sistema
+## 11. Qué revisar antes de dar por bueno el sistema
 
 Un recorrido que prueba lo importante. Se necesitan **dos usuarios** (quien registra no puede aprobar).
 
@@ -301,7 +313,7 @@ Un recorrido que prueba lo importante. Se necesitan **dos usuarios** (quien regi
 
 ---
 
-## 11. Dónde está todo
+## 12. Dónde está todo
 
 - **Código:** `github.com/gerenciageneral-spec/CRMLIPGO`, rama `main`. Vercel publica cada cambio.
 - **Base de datos:** la misma de LIPgo (Supabase).

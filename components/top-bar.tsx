@@ -88,7 +88,7 @@ export function TopBar({ onNavigateModule }: TopBarProps) {
                     onValueChange={(v) => setSelectedEmpresaId(parseInt(v, 10))}
                     disabled={loadingEmpresas}
                   >
-                    <SelectTrigger className="h-7 w-auto min-w-[130px] text-xs">
+                    <SelectTrigger className="h-7 w-auto min-w-[130px] rounded-lg border-primary/30 bg-primary/5 text-xs font-semibold">
                       <SelectValue placeholder="Empresa..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -101,10 +101,12 @@ export function TopBar({ onNavigateModule }: TopBarProps) {
                   </Select>
                 </div>
               ) : (
-                <span className="truncate text-xs font-semibold sm:text-sm">
-                  {selectedEmpresaNombre ?? profile.empresa_nombre}
+                <span className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold">
+                  <Building2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <span className="truncate">{selectedEmpresaId ?? profile.empresa_id} · {selectedEmpresaNombre ?? profile.empresa_nombre}</span>
                 </span>
               )}
+              <span className="hidden text-xs font-medium text-muted-foreground sm:inline">{profile.usuario}</span>
             </>
           ) : (
             <span className="text-xs text-muted-foreground sm:text-sm">
@@ -128,9 +130,14 @@ export function TopBar({ onNavigateModule }: TopBarProps) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Menú de usuario">
-                <UserIcon className="h-5 w-5" />
-              </Button>
+              <button
+                type="button"
+                aria-label="Menú de usuario"
+                className="relative ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-border bg-muted transition-colors hover:border-primary"
+              >
+                <UserIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" aria-hidden="true" />
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="truncate">

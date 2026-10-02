@@ -18,6 +18,7 @@ import { LipbotDock } from "@/components/lipbot-dock"
 import { HostDialogosGlobales } from "@/components/crm/host-dialogos-globales"
 import { groups, type GroupKey } from "@/lib/dashboard-data"
 import { useAuth } from "@/components/auth-provider"
+import { useNavegacionPersonal } from "@/hooks/use-navegacion-personal"
 
 export default function CrmPage() {
   const { user, loading } = useAuth()
@@ -44,6 +45,12 @@ export default function CrmPage() {
     setSelectedGroup((prev) => destino ?? prev ?? groups[0]?.key ?? null)
     setSelectedModule(moduleName)
   }, [])
+
+  // Recientes ("Continuar donde ibas"): cada módulo abierto se registra.
+  const { registrarVisita } = useNavegacionPersonal()
+  useEffect(() => {
+    if (selectedModule) registrarVisita(selectedModule)
+  }, [selectedModule, registrarVisita])
 
   // Canal de navegacion por evento global, para que cualquier componente
   // profundo pueda mandar al usuario a otro modulo sin pasar props por toda la
