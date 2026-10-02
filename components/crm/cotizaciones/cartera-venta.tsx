@@ -18,6 +18,7 @@ import { BadgeEstado, MarcoTabla, Td, filaTabla, FilaVacia } from "@/components/
 import { DetalleDialog, FuenteDato } from "@/components/crm/ui/detalle-dialog"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { FichaCliente, FichaClienteCargando } from "@/components/crm/clientes/ficha-cliente"
 
 export function ResumenCarteraVenta({
   cuenta,
@@ -28,59 +29,16 @@ export function ResumenCarteraVenta({
 }) {
   const [verFacturas, setVerFacturas] = useState(false)
 
-  if (cargando) {
-    return (
-      <div className="flex h-20 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-        Consultando cartera…
-      </div>
-    )
-  }
+  if (cargando) return <FichaClienteCargando compacta />
   if (!cuenta) return null
 
-  const c = cuenta.cuenta
-  const sobrecupo = c.disponible < 0
   const abiertas = cuenta.facturas.filter((f) => f.saldo > 0)
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {cuenta.cliente.bloqueado_cartera && (
-          <BadgeEstado tono="peligro" icono={Ban}>Bloqueado por cartera</BadgeEstado>
-        )}
-        {sobrecupo && <BadgeEstado tono="peligro">Sobrecupo</BadgeEstado>}
-        {c.diasMora > 0 && (
-          <BadgeEstado tono="advertencia">{c.diasMora} días de mora</BadgeEstado>
-        )}
-        <BadgeEstado tono="neutral">
-          {cuenta.cliente.dias_credito > 0 ? `Crédito a ${cuenta.cliente.dias_credito} días` : "Sin días de crédito"}
-        </BadgeEstado>
-        {abiertas.length > 0 && (
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="ml-auto h-8 text-xs"
-            onClick={() => setVerFacturas(true)}
-          >
-            <FileText className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-            {abiertas.length} factura{abiertas.length === 1 ? "" : "s"} abierta{abiertas.length === 1 ? "" : "s"}
-          </Button>
-        )}
-      </div>
-
-      <MiniKpiGrid>
-        <MiniKpi etiqueta="Cupo" valor={money(c.cupo)} icono={Wallet} />
-        <MiniKpi etiqueta="Saldo" valor={money(c.saldo)} />
-        <MiniKpi
-          etiqueta={sobrecupo ? "Sobrecupo" : "Disponible"}
-          valor={money(c.disponible)}
-          tono={sobrecupo ? "peligro" : "exito"}
-        />
-        <MiniKpi
-          etiqueta={c.diasMora > 0 ? `Vencido · ${c.diasMora} d mora` : "Vencido"}
-          valor={money(c.vencido)}
-          tono={c.vencido > 0 ? "advertencia" : "neutral"}
-        />
-      </MiniKpiGrid>
+      {/* La misma ficha que en la Cuenta 360 y el recaudo: cupo, saldo,
+          vencido y las señales de lo que conviene hacer antes de vender. */}
+      <FichaCliente cuenta={cuenta} compacta onVerFacturas={abiertas.length ? () => setVerFacturas(true) : undefined} />
 
       <DetalleDialog
         abierto={verFacturas}

@@ -85,6 +85,8 @@ export const PARAM = {
   DOCUMENTOS_URL_MINUTOS: "documentos.url_minutos",
   IA_LECTURA_COMPROBANTES: "ia.lectura_comprobantes",
   IA_MODELO_OCR: "ia.modelo_ocr",
+  /** Modelo para el análisis del cliente (script 208). */
+  IA_MODELO_ANALISIS: "ia.modelo_analisis",
 
   // Estado de cuenta (script 205)
   ESTADO_CUENTA_DIAS_MOVIMIENTOS: "estado_cuenta.dias_movimientos",
@@ -157,6 +159,7 @@ export const PARAM_FALLBACK: Record<ParamKey, string> = {
   "documentos.url_minutos": "10",
   "ia.lectura_comprobantes": "true",
   "ia.modelo_ocr": "claude-sonnet-5",
+  "ia.modelo_analisis": "claude-sonnet-5",
   "estado_cuenta.dias_movimientos": "90",
   "estado_cuenta.enlace_dias": "7",
   "estado_cuenta.nota": "Si ya realizó el pago, por favor haga caso omiso de este estado de cuenta y envíenos el soporte.",

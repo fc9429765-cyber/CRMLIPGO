@@ -97,7 +97,7 @@ Cada producto tiene su **owner** (quien lo vende y lo factura). Un pedido no mez
 |---|---|
 | **Productos** | Lo comercial: fotos, descripción, precio base, owner e impuesto. |
 | **Vendedores** | Zona, meta, comisión, desempeño, y el usuario con el que entra al CRM. |
-| **Parametrización** | Las 47 reglas del negocio (sección 4). |
+| **Parametrización** | Las 49 reglas del negocio (sección 4). |
 | **Maestros** | Owners (con el membrete del estado de cuenta), impuestos, bancos, cuentas destino, medios de pago, motivos de rechazo, destinatarios de WhatsApp y tipos de documento. |
 | **Importar datos** | Carga desde Excel/CSV de clientes, sucursales, productos, catálogos, vínculo vendedor–usuario, números de factura, saldos iniciales y **notas crédito**. Todo pasa primero por una simulación que muestra qué se crea, qué cambia y qué tiene error. |
 | **Integraciones** | La bandeja de lo que sale hacia SAP, WhatsApp y LIPgo, y los **mapeos y la prueba de conexión con SAP** (sección 5). |
@@ -142,6 +142,14 @@ Desde cualquier cliente se abre su **Cuenta 360**: cupo, saldo, disponible o sob
 
 El **estado de cuenta** sale en PDF con el membrete del owner (logo, NIT, dirección, texto legal, editables en Maestros → Owners). Se descarga o se **envía por WhatsApp** con un enlace que caduca a los días configurados. Si el cliente debe a las dos empresas, se genera uno por empresa.
 
+### Ficha del cliente, radar y buscador
+
+- **Ficha del cliente.** Al elegir un cliente en Nueva Venta, en Cotizar o en Registrar Pago aparece su ficha: semáforo (al día, poco cupo, vencido, bloqueado), barra de cupo usado y disponible, saldo, vencido con días de mora, por vencer, saldo a favor, facturas abiertas, la cartera separada por empresa, y **señales** de lo que conviene hacer antes ("$2.000.000 vencidos: cobrar antes de vender", "2 facturas vencen esta semana", "tiene saldo a favor"). Es la misma ficha en la Cuenta 360.
+- **Análisis con IA** (Cuenta 360 → "Analizar este cliente"): una lectura en tres frases, el riesgo y hasta tres acciones concretas, redactadas por la IA **solo con las cifras del CRM**. Se pide a propósito, no se carga sola.
+- **Radar en Inicio.** Qué necesita atención hoy, lo rojo primero: pedidos programados en LIPgo que no han salido (con los días de atraso), pedidos con stock insuficiente en el centro de despacho, aprobados que no pasaron a LIPgo, lo que espera tu aprobación, cartera vencida y por vencer, cotizaciones que vencen, recaudos y pedidos rechazados por corregir, visitas atrasadas y envíos con error. Cada fila lleva al sitio exacto. Se refresca sola.
+- **Estado logístico del pedido.** En el detalle del pedido se ve dónde va en LIPgo: programado, en orden de cargue (con número, vehículo y transporte) o entregado, sin abrir LIPgo.
+- **Buscador Ctrl+K.** Desde cualquier pantalla: escribir tres letras y abrir un módulo, o un cliente y lo siguiente con él (su cuenta, venderle, cotizarle, cobrarle, sus pedidos, su cartera).
+
 ### Accesos directos entre módulos
 
 Desde donde se esté, lo siguiente que se hace con un cliente o un prospecto está a un clic y **lleva los datos**: no hay que buscar al cliente otra vez.
@@ -162,14 +170,14 @@ La **Cuenta 360 se abre encima** del módulo donde se esté (un pedido, una apro
 
 ## 4. Nada está escrito en el código
 
-Hay **47 parámetros** que se cambian desde Configuración → Parametrización, y los maestros de la sección 2. Algunos de los que más se usan:
+Hay **49 parámetros** que se cambian desde Configuración → Parametrización, y los maestros de la sección 2. Algunos de los que más se usan:
 
 | Grupo | Ejemplos |
 |---|---|
 | **Pedidos** | Orden de aprobación (secuencial o paralelo) · las 2 claves · si se proyecta a LIPgo al aprobar |
 | **Crédito** | Sobrecupo: permitir y marcar, o bloquear |
 | **Cartera** | Los 3 cortes de los rangos de vencimiento · nota y días del estado de cuenta · validez del enlace |
-| **Documentos** | Si la IA lee los comprobantes · modelo de IA · validez de los enlaces a comprobantes |
+| **Documentos** | Si la IA lee los comprobantes · modelo de IA para comprobantes y para el análisis del cliente · validez de los enlaces a comprobantes |
 | **Prospectos** | Si se exigen los documentos obligatorios · validez del enlace para el prospecto |
 | **Integraciones** | Un interruptor por cada flujo hacia SAP · reintentos · prefijo del código de cliente en SAP |
 | **Seguridad** | Modo de validación de permisos (ver sección 6) |
@@ -252,6 +260,7 @@ En modo real, un envío al que le falta un código **espera sin gastar intentos*
 - **Estado de cuenta por correo:** se descarga o se envía por WhatsApp; no por correo.
 - **Plantilla oficial del estado de cuenta:** se usa una plantilla configurable mientras INDUPAN entrega la suya.
 - **SAP no se ha probado contra un SAP real**, porque no hay uno conectado. El traductor está cubierto por pruebas.
+- **El análisis con IA del cliente no se ha probado con un cliente real** (necesita una sesión y la clave de Anthropic en Vercel); usa el mismo mecanismo que la lectura de comprobantes, que sí funciona.
 - **Sin probar de punta a punta en pantalla:** los recaudos, el tablero de cartera y el expediente del prospecto se probaron en la base de datos, pero falta el recorrido de un usuario real. La conversión de prospecto en cliente dentro de LIPgo no se ha ejecutado todavía (escribe en producción).
 
 ---

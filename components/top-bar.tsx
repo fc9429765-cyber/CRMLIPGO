@@ -30,6 +30,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { LucideIcon } from "lucide-react"
+import { PaletaComandos } from "@/components/crm/paleta-comandos"
 
 interface TopBarProps {
   selectedModule?: string | null
@@ -114,6 +115,7 @@ export function TopBar({ onNavigateModule }: TopBarProps) {
 
         {/* Derecha: alertas y usuario */}
         <div className="flex items-center gap-1 sm:gap-2">
+          <PaletaComandos />
           {DOMINIOS.map((d) => (
             <AlertaIcono
               key={d.endpoint}

@@ -35,6 +35,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { getCuenta360, type Cuenta360 } from "@/lib/crm-cuenta-actions"
+import { FichaCliente, FichaClienteCargando } from "@/components/crm/clientes/ficha-cliente"
 
 type EstadoLectura =
   | { tipo: "nada" }
@@ -76,6 +78,15 @@ export function RecaudoForm({
   const [referencia, setReferencia] = useState(r0?.referencia ?? "")
   const [observaciones, setObservaciones] = useState(r0?.observaciones ?? "")
   const [cartera, setCartera] = useState<(CarteraParaRecaudo & { distribucion: Distribucion }) | null>(null)
+  // La ficha del cliente (cupo, vencido, señales): el vendedor sabe qué cobrar.
+  const [cuenta, setCuenta] = useState<Cuenta360 | null>(null)
+  useEffect(() => {
+    setCuenta(null)
+    if (!clienteId) return
+    let vivo = true
+    getCuenta360(clienteId, empresaId).then((r) => vivo && r.success && r.data && setCuenta(r.data))
+    return () => { vivo = false }
+  }, [clienteId, empresaId])
   const [cargandoCartera, setCargandoCartera] = useState(false)
   const [buscador, setBuscador] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -291,18 +302,8 @@ export function RecaudoForm({
           </div>
         )}
 
-        {cartera && (
-          <p className="text-xs text-muted-foreground">
-            Debe {cop(cartera.facturas.reduce((s, f) => s + f.saldo, 0))} en {cartera.facturas.length} factura
-            {cartera.facturas.length === 1 ? "" : "s"}
-            {cartera.facturas.some((f) => f.dias_vencido > 0) && (
-              <span className="text-red-600">
-                {" "}· {cop(cartera.facturas.filter((f) => f.dias_vencido > 0).reduce((s, f) => s + f.saldo, 0))} vencido
-              </span>
-            )}
-            {cartera.saldoFavor > 0 && <> · saldo a favor {cop(cartera.saldoFavor)}</>}
-          </p>
-        )}
+        {clienteId && !cuenta && <FichaClienteCargando compacta />}
+        {cuenta && <FichaCliente cuenta={cuenta} compacta />}
       </section>
 
       {/* -------------------------------------------------------- Comprobante */}

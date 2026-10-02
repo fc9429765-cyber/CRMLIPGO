@@ -50,6 +50,7 @@ import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { PedidoEditarDialog } from "./pedido-editar-dialog"
 import { AccesosRapidos } from "@/components/crm/ui/accesos-rapidos"
+import { EstadoLogisticoPedido } from "@/components/crm/pedidos/estado-logistico"
 
 // ------------------------------------------------------ piezas compartidas
 // Viven aquí y no en el panel para que el panel las importe sin crear un
@@ -436,6 +437,7 @@ export function PedidoDetalleDialog({
                 { intencion: { accion: "ver_pedidos_cliente", clienteId: p.cliente_id }, etiqueta: "Pedidos del cliente" },
               ]}
             />
+            <EstadoLogisticoPedido idpedidoLipgo={p.idpedido_lipgo} empresaId={empresaId} />
             <ResumenDatos className="md:grid-cols-4 lg:grid-cols-4">
               <Dato etiqueta="Cliente">{p.cliente_nombre}</Dato>
               <Dato etiqueta="Sucursal">{p.sucursal_nombre ?? <span className="text-amber-700">Sin sucursal</span>}</Dato>

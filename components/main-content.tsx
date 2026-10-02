@@ -18,6 +18,7 @@ import { InicioDashboard } from "@/components/crm/dashboard/inicio-dashboard"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { getModuleEntry } from "@/lib/module-registry"
 import type { GroupKey } from "@/lib/dashboard-data"
+import { Aparece } from "@/components/crm/ui/movimiento"
 
 interface MainContentProps {
   selectedGroup: GroupKey | null
@@ -72,7 +73,11 @@ export function MainContent({
     <ErrorBoundary key={`${selectedGroup}|${selectedModule}`}>
       <div className={entry.fullWidth ? "p-2 md:p-4" : "p-4 md:p-6"}>
         <PermissionGuard moduleName={selectedModule}>
-          <Componente onNavigate={onSelectModule} />
+          {/* Cada módulo entra con un leve desplazamiento: se nota el cambio
+              sin que el contenido salte. Respeta "reducir animaciones". */}
+          <Aparece desde="abajo">
+            <Componente onNavigate={onSelectModule} />
+          </Aparece>
         </PermissionGuard>
       </div>
     </ErrorBoundary>

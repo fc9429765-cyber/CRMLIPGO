@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress"
 import { toast } from "@/hooks/use-toast"
 import type { GroupKey } from "@/lib/dashboard-data"
 import type { LucideIcon } from "lucide-react"
+import { RadarPanel } from "@/components/crm/dashboard/radar-panel"
 
 const REFRESCO_MS = 60_000
 
@@ -85,11 +86,6 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
   }
 
   const d = datos
-  const hayPendientes =
-    (d?.pendientes.pedidosSinAutorizar ?? 0) > 0 ||
-    (d?.agenda.atrasadas ?? 0) > 0 ||
-    (d?.cotizaciones.porVencer ?? 0) > 0 ||
-    (d?.pendientes.prospectosSinGestion ?? 0) > 0
 
   return (
     <div className="space-y-5">
@@ -103,44 +99,10 @@ export function InicioDashboard({ onSelectGroup, onSelectModule }: Props) {
         onRefrescar={() => cargar(true)}
       />
 
-      {/* Lo que pide acción HOY, antes que las cifras del mes. Un tablero que
-          empieza por los totales obliga a buscar lo urgente. */}
-      {hayPendientes && (
-        <div className="flex flex-wrap gap-2">
-          {(d?.pendientes.pedidosSinAutorizar ?? 0) > 0 && (
-            <Pendiente
-              icono={Stamp}
-              texto={`${d!.pendientes.pedidosSinAutorizar} pedido(s) esperando autorización`}
-              tono="primary"
-              onClick={() => onSelectModule?.("Autorizar Pedidos")}
-            />
-          )}
-          {(d?.agenda.atrasadas ?? 0) > 0 && (
-            <Pendiente
-              icono={CalendarClock}
-              texto={`${d!.agenda.atrasadas} visita(s) atrasada(s)`}
-              tono="danger"
-              onClick={() => onSelectModule?.("Mi Agenda")}
-            />
-          )}
-          {(d?.cotizaciones.porVencer ?? 0) > 0 && (
-            <Pendiente
-              icono={FileText}
-              texto={`${d!.cotizaciones.porVencer} cotización(es) por vencer`}
-              tono="warning"
-              onClick={() => onSelectModule?.("Cotizaciones")}
-            />
-          )}
-          {(d?.pendientes.prospectosSinGestion ?? 0) > 0 && (
-            <Pendiente
-              icono={UserX}
-              texto={`${d!.pendientes.prospectosSinGestion} prospecto(s) sin gestión`}
-              tono="warning"
-              onClick={() => onSelectModule?.("Embudo de Ventas")}
-            />
-          )}
-        </div>
-      )}
+      {/* Lo que pide acción HOY, antes que las cifras del mes: el radar
+          reúne despachos, cartera, aprobaciones y agenda, y lleva a cada
+          asunto con los datos puestos. */}
+      <RadarPanel />
 
       {/* Indicadores compactos tambien en el tablero.
           La tarjeta ejecutiva de LIPgo mide unos 145px de alto: es la del

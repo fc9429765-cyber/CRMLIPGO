@@ -30,6 +30,8 @@ import { MiniKpi, MiniKpiGrid, BarraMeta } from "@/components/crm/ui/mini-kpi"
 import { SubNav } from "@/components/crm/ui/sub-nav"
 import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { FichaCliente } from "@/components/crm/clientes/ficha-cliente"
+import { AnalisisIACliente } from "@/components/crm/clientes/analisis-ia-cliente"
 
 const pesos = (n: number) =>
   n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
@@ -150,79 +152,10 @@ function Contenido({
           cobrarle, ver sus pedidos. Lleva al módulo con el cliente ya elegido. */}
       <AccesosRapidos accesos={accesosCliente(cliente.id, { sinCuenta: true })} />
 
-      {cliente.bloqueado_cartera && (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-xs font-semibold text-red-800">
-          <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
-          Cliente bloqueado por cartera
-        </div>
-      )}
+      {/* La ficha: identidad, cupo, cifras, desglose por owner y señales. */}
+      <FichaCliente cuenta={datos} diasAviso={5} />
 
-      <MiniKpiGrid className="sm:grid-cols-4">
-        <MiniKpi etiqueta="Cupo" valor={cuenta.cupo > 0 ? pesos(cuenta.cupo) : "Contado"} />
-        <MiniKpi etiqueta="Saldo" valor={pesos(cuenta.saldo)} />
-        {/* El sobrecupo se muestra en positivo y con su nombre: un "disponible"
-            negativo obliga a pensar el signo para entender que hay un problema. */}
-        <MiniKpi
-          etiqueta={sobrecupo ? "Sobrecupo" : "Disponible"}
-          valor={pesos(Math.abs(cuenta.disponible))}
-          tono={sobrecupo ? "peligro" : "neutral"}
-        />
-        <MiniKpi etiqueta="Vencido" valor={pesos(cuenta.vencido)} tono={cuenta.vencido > 0 ? "peligro" : "neutral"} />
-        <MiniKpi etiqueta="Al día" valor={pesos(cuenta.alDia)} />
-        <MiniKpi
-          etiqueta="Días de mora"
-          valor={cuenta.diasMora}
-          tono={cuenta.diasMora > 0 ? "advertencia" : "neutral"}
-        />
-        <MiniKpi etiqueta="% vencido" valor={`${cuenta.pctVencido.toLocaleString("es-CO")}%`} />
-        <MiniKpi etiqueta="Facturas abiertas" valor={`${cuenta.facturasAbiertas} (${cuenta.facturasVencidas} venc.)`} />
-      </MiniKpiGrid>
-
-      {cuenta.cupo > 0 && (
-        <BarraMeta etiqueta="% del cupo usado" porcentaje={(cuenta.saldo / cuenta.cupo) * 100} />
-      )}
-
-      {/* INDUPAN y Molinos cobran por separado: el total solo no dice a quién
-          se le debe. El cupo es del cliente, por eso aquí no hay disponible. */}
-      {porOwner.length > 1 && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {porOwner.map((o) => (
-            <div key={o.ownerId ?? "sin"} className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
-              <p className="font-semibold">{o.ownerNombre}</p>
-              <div className="mt-1 flex justify-between gap-2 tabular-nums">
-                <span className="text-muted-foreground">Saldo</span>
-                <span>{pesos(o.cuenta.saldo)}</span>
-              </div>
-              <div className="flex justify-between gap-2 tabular-nums">
-                <span className="text-muted-foreground">Vencido</span>
-                <span className={cn(o.cuenta.vencido > 0 && "font-semibold text-red-700")}>
-                  {pesos(o.cuenta.vencido)}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tablero && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border p-2">
-            <p className="mb-1 text-xs font-semibold text-muted-foreground">Antigüedad del saldo</p>
-            <GraficaBarras
-              datos={tablero.rangos.map((t) => ({ rango: t.etiqueta === "Al día" ? "Por vencer" : t.etiqueta, valor: t.valor }))}
-              x="rango" y="valor" etiqueta="Saldo" moneda colorear alto={150}
-            />
-          </div>
-          <div className="rounded-md border p-2">
-            <p className="mb-1 text-xs font-semibold text-muted-foreground">
-              Recaudo últimos 12 meses · {pesos(tablero.recaudoMensual.reduce((s, m) => s + m.valor, 0))}
-            </p>
-            <GraficaArea datos={tablero.recaudoMensual} x="etiqueta" y="valor" etiqueta="Recaudo" moneda alto={150} />
-          </div>
-        </div>
-      )}
-
-      <EstadoCuentaAcciones clienteId={cliente.id} empresaId={empresaId} owners={ownersConSaldo} />
+      <AnalisisIACliente clienteId={cliente.id} empresaId={empresaId} />
 
       <SubNav<Vista>
         vistas={[
